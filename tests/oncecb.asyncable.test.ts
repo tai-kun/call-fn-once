@@ -1,5 +1,5 @@
 import { describe, test, vi } from "vitest";
-import callAsyncableFnOnce from "../src/call-asyncable-fn-once.js";
+import { callAsyncableFnOnce } from "../src/call-asyncable-fn-once.js";
 
 describe("同期処理のキャッシュ", () => {
   test("初回呼び出し時、コールバックを実行して結果をキャッシュに保存する", ({ expect }) => {

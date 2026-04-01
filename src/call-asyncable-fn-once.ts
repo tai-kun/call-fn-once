@@ -2,6 +2,29 @@ import { isPromiseLike } from "@tai-kun/is-promise-like";
 import type { Promisable } from "./_types.js";
 
 /**
+ * `callAsyncableFnOnce` 関数に関連する型定義を管理する名前空間です。
+ */
+export namespace callAsyncableFnOnce {
+  /**
+   * キャッシュされた実行結果を保持するための Map 型の定義です。
+   *
+   * キーには任意の値を指定でき、値には計算結果が格納されます。
+   */
+  export type CacheMap = Map<unknown, any>;
+
+  /**
+   * `callAsyncableFnOnce` が返す戻り値の型を定義します。
+   *
+   * 入力が `then` メソッドを持つ（Promise ライクな）型である場合、解決後の値を `Promisable` でラップした型を返します。
+   *
+   * @template T 判定対象となる元の型です。
+   */
+  export type Return<T> = T extends { readonly then: (...args: any) => any }
+    ? Promisable<Awaited<T>>
+    : T;
+}
+
+/**
  * 指定されたキーに基づき、コールバック関数を一度だけ実行して結果をキャッシュします。
  *
  * 同期および非同期の両方の戻り値に対応しており、非同期の場合は Promise オブジェクトがキャッシュされ、解決され次第その値をキャッシュします。
@@ -12,11 +35,11 @@ import type { Promisable } from "./_types.js";
  * @param fn 実行対象となるコールバック関数です。
  * @returns キャッシュされている値、または新規に実行された関数の戻り値を返します。
  */
-export default function callAsyncableFnOnce<T>(
-  cacheMap: Map<unknown, any>,
+export function callAsyncableFnOnce<T>(
+  cacheMap: callAsyncableFnOnce.CacheMap,
   key: unknown,
   fn: () => T,
-): T extends PromiseLike<infer U> ? Promisable<Awaited<U>> : T {
+): callAsyncableFnOnce.Return<T> {
   // Map 内に指定されたキーが存在するかどうかを確認します。
   // has メソッドを使用することで、値が undefined の場合でも正しく存在チェックを行います。
   if (cacheMap.has(key)) {

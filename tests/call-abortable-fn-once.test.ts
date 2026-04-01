@@ -1,5 +1,5 @@
 import { test, vi } from "vitest";
-import callAbortableFnOnce from "../src/call-abortable-fn-once.js";
+import { callAbortableFnOnce } from "../src/call-abortable-fn-once.js";
 
 test("初回呼び出しのとき、コールバックを実行してその結果を返す", ({ expect }) => {
   // Arrange

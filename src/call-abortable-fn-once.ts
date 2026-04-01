@@ -60,6 +60,35 @@ const stateMapMap = /*#__PURE__*/ new WeakMap<Map<unknown, Cache>, Map<unknown, 
 const dummySignal = /*#__PURE__*/ new AbortController().signal;
 
 /**
+ * 内部用の Cache 型のエイリアスです。
+ */
+type _Cache = Cache;
+
+/**
+ * callAbortableFnOnce 関数に関連する型定義をまとめた名前空間です。
+ */
+export namespace callAbortableFnOnce {
+  /**
+   * キャッシュデータの型定義です。
+   */
+  export type Cache = _Cache;
+
+  /**
+   * キャッシュを格納する Map の型定義です。
+   */
+  export type CacheMap = Map<unknown, Cache>;
+
+  /**
+   * 関数の戻り値を推論するための型定義です。
+   *
+   * @template T 推論対象の型です。
+   */
+  export type Return<T> = T extends { readonly then: (...args: any) => any }
+    ? Promisable<Awaited<T>>
+    : T;
+}
+
+/**
  * 指定されたキーに基づき、コールバック関数を一度だけ実行して結果をキャッシュします。
  *
  * 同期および非同期の両方の戻り値に対応しており、非同期の場合は Promise オブジェクトがキャッシュされ、解決され次第、確定した値を再利用します。
@@ -73,12 +102,12 @@ const dummySignal = /*#__PURE__*/ new AbortController().signal;
  * @param signal 外部から渡される呼び出し元の中断シグナルです。省略可能です。
  * @returns キャッシュされている値、または新規に実行された関数の戻り値を返します。
  */
-export default function callAbortableFnOnce<T>(
-  cacheMap: Map<unknown, Cache>,
+export function callAbortableFnOnce<T>(
+  cacheMap: callAbortableFnOnce.CacheMap,
   key: unknown,
   fn: (signal: AbortSignal) => T,
   signal?: AbortSignal | undefined,
-): T extends PromiseLike<infer U> ? Promisable<Awaited<U>> : T {
+): callAbortableFnOnce.Return<T> {
   // すでにシグナルが中断されている場合は、即座にエラーを投げます。
   signal?.throwIfAborted();
 

@@ -1,5 +1,5 @@
 import { describe, test, vi } from "vitest";
-import callFnOnce from "../src/call-fn-once.js";
+import { callFnOnce } from "../src/call-fn-once.js";
 
 describe("キャッシュにキーが存在しない場合", () => {
   test("コールバック関数を実行し、その結果を返却する", ({ expect }) => {
