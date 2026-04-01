@@ -1,6 +1,6 @@
 {
   "name": "call-fn-once",
-  "version": "0.0.0",
+  "version": "0.0.4",
   "license": "MIT",
   "description": "Calls a callback only once",
   "sideEffects": false,
