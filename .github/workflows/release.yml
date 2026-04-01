@@ -28,11 +28,12 @@ jobs:
 
       - name: "バージョン確認"
         run: |
-          if npm view "asyncmux@$_VERSION" version >/dev/null 2>&1; then
+          if npm view "$_PACKAGE@$_VERSION" version >/dev/null 2>&1; then
             echo "Error: そのバージョンはすでに存在しています。" >&2
             exit 1
           fi
         env:
+          _PACKAGE: call-fn-once
           _VERSION: ${{ steps.semver.outputs.version }}
 
       - name: "チェックアウト"
