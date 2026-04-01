@@ -1,0 +1,42 @@
+{
+  "name": "call-fn-once",
+  "version": "0.0.0",
+  "license": "MIT",
+  "description": "Calls a callback only once",
+  "sideEffects": false,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "package.json",
+    "LICENSE"
+  ],
+  "homepage": "https://github.com/tai-kun/call-fn-once",
+  "repository": {
+    "url": "https://github.com/tai-kun/call-fn-once"
+  },
+  "dependencies": {
+    "@tai-kun/is-promise-like": "^0.0.5"
+  },
+  "devDependencies": {
+    "@tsconfig/node22": "^22.0.5",
+    "@tsconfig/strictest": "^2.0.8",
+    "@types/node": "^22.19.15",
+    "@vitest/browser": "^4.1.2",
+    "@vitest/browser-playwright": "^4.1.2",
+    "dprint": "^0.53.1",
+    "npm-check-updates": "^19.6.6",
+    "playwright": "^1.58.2",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.2"
+  },
+  "scripts": {
+    "build": "tsc --project ./.config/tsconfig.build.json"
+  }
+}
