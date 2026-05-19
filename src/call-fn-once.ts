@@ -10,9 +10,9 @@ export namespace callFnOnce {
   export type CacheMap = Map<unknown, any>;
 
   /**
-   * 関数の戻り値の型を表すジェネリック型です。
+   * 関数の返り値の型を表すジェネリック型です。
    *
-   * @template T 戻り値の型です。
+   * @template T 返り値の型です。
    */
   export type Return<T> = T;
 }
@@ -26,7 +26,7 @@ export namespace callFnOnce {
  * @param cacheMap 実行結果を保持するための Map オブジェクトです。
  * @param key キャッシュを識別するためのユニークなキーです。
  * @param fn 実行対象となるコールバック関数です。
- * @returns キャッシュされている値、または新規に実行された関数の戻り値を返します。
+ * @returns キャッシュされている値、または新規に実行された関数の結果を返します。
  */
 export function callFnOnce<T>(
   cacheMap: callFnOnce.CacheMap,

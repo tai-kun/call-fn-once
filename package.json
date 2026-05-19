@@ -30,7 +30,7 @@
     "build": "tsc --project ./.config/tsconfig.build.json"
   },
   "dependencies": {
-    "@tai-kun/is-promise-like": "^0.0.5"
+    "maypromise": "^0.0.4"
   },
   "devDependencies": {
     "@tsconfig/node24": "^24.0.4",

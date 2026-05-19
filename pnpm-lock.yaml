@@ -8,9 +8,9 @@ importers:
 
   .:
     dependencies:
-      '@tai-kun/is-promise-like':
-        specifier: ^0.0.5
-        version: 0.0.5
+      maypromise:
+        specifier: ^0.0.4
+        version: 0.0.4
     devDependencies:
       '@tsconfig/node24':
         specifier: ^24.0.4
@@ -456,9 +456,6 @@ packages:
   '@standard-schema/spec@1.1.0':
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
 
-  '@tai-kun/is-promise-like@0.0.5':
-    resolution: {integrity: sha512-kQ3bjOVFS1Ff7/tXQAG3Mwo7UiF2ymyHa34X0gPs8P1eua2Y2kJh8zmj04eflp7JqwHq+6QA6sTJp8VDoL9yAA==}
-
   '@tsconfig/node24@24.0.4':
     resolution: {integrity: sha512-2A933l5P5oCbv6qSxHs7ckKwobs8BDAe9SJ/Xr2Hy+nDlwmLE1GhFh/g/vXGRZWgxBg9nX/5piDtHR9Dkw/XuA==}
 
@@ -640,6 +637,9 @@ packages:
 
   magic-string@0.30.21:
     resolution: {integrity: sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==}
+
+  maypromise@0.0.4:
+    resolution: {integrity: sha512-NhTqjMZsOZtLR+MHHMWxQxMapwRGYhqW82xBOXVL5529DnTHx4DFMBSezfquLkXaCHwm4sAxBYEglJ5vrdttfg==}
 
   mrmime@2.0.1:
     resolution: {integrity: sha512-Y3wQdFg2Va6etvQ5I82yUhGdsKrcYox6p7FfL1LbK2J4V01F9TGlepTIhnK24t7koZibmg82KGglhA1XK5IsLQ==}
@@ -1080,8 +1080,6 @@ snapshots:
 
   '@standard-schema/spec@1.1.0': {}
 
-  '@tai-kun/is-promise-like@0.0.5': {}
-
   '@tsconfig/node24@24.0.4': {}
 
   '@tsconfig/strictest@2.0.8': {}
@@ -1253,6 +1251,8 @@ snapshots:
   magic-string@0.30.21:
     dependencies:
       '@jridgewell/sourcemap-codec': 1.5.5
+
+  maypromise@0.0.4: {}
 
   mrmime@2.0.1: {}
 

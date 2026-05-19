@@ -1,5 +1,6 @@
 minimumReleaseAge: 10080
-minimumReleaseAgeExclude: []
+minimumReleaseAgeExclude:
+  - maypromise
 onlyBuiltDependencies: []
 strictDepBuilds: true
 blockExoticSubdeps: true

@@ -1,6 +1,4 @@
-import { isPromiseLike } from "@tai-kun/is-promise-like";
-
-import type { Promisable } from "./_types.js";
+import { type Thenable, type MaybePromise, isThenable } from "maypromise";
 
 /**
  * キャッシュの状態を表す型定義です。
@@ -82,19 +80,19 @@ export namespace callAbortableFnOnce {
   export type CacheMap = Map<unknown, Cache>;
 
   /**
-   * 関数の戻り値を推論するための型定義です。
+   * {@link callAbortableFnOnce} が返す値の型を定義します。
+   *
+   * 入力が `then` メソッドを持つ（Promise ライクな）型である場合、解決後の値を {@link MaybePromise} でラップした型を返します。
    *
    * @template T 推論対象の型です。
    */
-  export type Return<T> = T extends { readonly then: (...args: any) => any }
-    ? Promisable<Awaited<T>>
-    : T;
+  export type Return<T> = T extends Thenable ? MaybePromise<Awaited<T>> : T;
 }
 
 /**
  * 指定されたキーに基づき、コールバック関数を一度だけ実行して結果をキャッシュします。
  *
- * 同期および非同期の両方の戻り値に対応しており、非同期の場合は Promise オブジェクトがキャッシュされ、解決され次第、確定した値を再利用します。
+ * 同期および非同期の両方の返り値に対応しており、非同期の場合は Promise オブジェクトがキャッシュされ、解決され次第、確定した値を再利用します。
  *
  * 全ての呼び出し元の中断シグナルが発火した場合に限り、実行中のコールバック関数の処理を中断します。
  *
@@ -103,7 +101,7 @@ export namespace callAbortableFnOnce {
  * @param key キャッシュを識別するためのユニークなキーです。
  * @param fn 実行対象となるコールバック関数です。引数として内部管理用の中断シグナルを受け取ります。
  * @param signal 外部から渡される呼び出し元の中断シグナルです。省略可能です。
- * @returns キャッシュされている値、または新規に実行された関数の戻り値を返します。
+ * @returns キャッシュされている値、または新規に実行された関数の結果を返します。
  */
 export function callAbortableFnOnce<T>(
   cacheMap: callAbortableFnOnce.CacheMap,
@@ -208,14 +206,14 @@ export function callAbortableFnOnce<T>(
   try {
     // コールバック関数を実行し、内部管理用の中断シグナルを渡します。
     ret = fn(state.ctrl.signal);
-  } catch (e) {
+  } catch (ex) {
     // 同期処理で例外が発生した場合は、状態を破棄してエラーを投げます。
     stateMap.delete(key);
 
-    throw e;
+    throw ex;
   }
 
-  if (isPromiseLike(ret)) {
+  if (isThenable(ret)) {
     // Promise が解決または拒否された際の共通クリーンアップ処理を定義します。
     const innerPromise = Promise.resolve(ret).then(
       (val) => {
