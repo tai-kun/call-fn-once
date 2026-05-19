@@ -1,5 +1,8 @@
 import { type Thenable, type MaybePromise, isThenable } from "maypromise";
 
+import getAbortReason from "./_get-abort-reason.js";
+import throwIfAborted from "./_throw-if-aborted.js";
+
 /**
  * キャッシュの状態を表す型定義です。
  *
@@ -110,7 +113,7 @@ export function callAbortableFnOnce<T>(
   signal?: AbortSignal,
 ): callAbortableFnOnce.Return<T> {
   // すでにシグナルが中断されている場合は、即座にエラーを投げます。
-  signal?.throwIfAborted();
+  throwIfAborted(signal);
 
   // 指定されたキャッシュ用 Map に対応する、内部状態管理用の Map を取得または作成します。
   let stateMap = stateMapMap.get(cacheMap);
@@ -135,7 +138,7 @@ export function callAbortableFnOnce<T>(
     return new Promise((resolve, reject) => {
       // 登録時点で中断されているか確認します。
       if (signal.aborted) {
-        return reject(signal.reason);
+        return reject(getAbortReason(signal));
       }
 
       /**
@@ -147,13 +150,13 @@ export function callAbortableFnOnce<T>(
 
         // 待機しているシグナルが一つもなくなった場合、誰も結果を求めていないため処理を中断します。
         if (state.sigs.size === 0) {
-          state.ctrl.abort(signal.reason);
+          state.ctrl.abort(getAbortReason(signal));
           // 中断されたためキャッシュからも削除し、次回の呼び出しで再試行できるようにします。
           cacheMap.delete(key);
         }
 
         // この呼び出し元に対してエラーを通知します。
-        reject(signal.reason);
+        reject(getAbortReason(signal));
         // 元の Promise が呼び出せないようにします。
         resolve = reject = () => {};
       };
