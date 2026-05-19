@@ -1,4 +1,5 @@
 import { test, vi } from "vitest";
+
 import { callAbortableFnOnce } from "../src/call-abortable-fn-once.js";
 
 test("初回呼び出しのとき、コールバックを実行してその結果を返す", ({ expect }) => {
@@ -19,7 +20,7 @@ test("一度実行された後に同じキーで呼び出したとき、キャ�
   // Arrange
   const cacheMap = new Map();
   const key = "memo-key";
-  const fn = vi.fn(() => "data");
+  const fn = vi.fn<() => string>(() => "data");
 
   // Act
   callAbortableFnOnce(cacheMap, key, fn);
@@ -30,15 +31,14 @@ test("一度実行された後に同じキーで呼び出したとき、キャ�
   expect(fn).toHaveBeenCalledTimes(1);
 });
 
-test("非同期処理の実行中に同じキーで複数回呼び出したとき、処理を 1 つに集約する", async ({ expect }) => {
+test("非同期処理の実行中に同じキーで複数回呼び出したとき、処理を 1 つに集約する", async ({
+  expect,
+}) => {
   // Arrange
   const cacheMap = new Map();
   const key = "async-key";
-  const {
-    promise,
-    resolve,
-  } = Promise.withResolvers<void>();
-  const fn = vi.fn(async () => {
+  const { promise, resolve } = Promise.withResolvers<void>();
+  const fn = vi.fn<() => Promise<string>>(async () => {
     await promise;
     return "async-data";
   });
@@ -48,15 +48,7 @@ test("非同期処理の実行中に同じキーで複数回呼び出したと�
   const promise2 = callAbortableFnOnce(cacheMap, key, fn);
   const promise3 = callAbortableFnOnce(cacheMap, key, fn);
   resolve();
-  const [
-    result1,
-    result2,
-    result3,
-  ] = await Promise.all([
-    promise1,
-    promise2,
-    promise3,
-  ]);
+  const [result1, result2, result3] = await Promise.all([promise1, promise2, promise3]);
 
   // Assert
   expect(result1).toBe("async-data");
@@ -72,7 +64,7 @@ test("外部シグナルが既に中断されているとき、即座に中断�
   const controller = new AbortController();
   const reason = new Error("Already aborted");
   controller.abort(reason);
-  const fn = vi.fn();
+  const fn = vi.fn<() => void>();
 
   // Act & Assert
   expect(() => {
@@ -81,21 +73,17 @@ test("外部シグナルが既に中断されているとき、即座に中断�
   expect(fn).not.toHaveBeenCalled();
 });
 
-test("複数の呼び出し元のうち一部が中断しても、他の待機者がいる限り内部処理は継続する", async ({ expect }) => {
+test("複数の呼び出し元のうち一部が中断しても、他の待機者がいる限り内部処理は継続する", async ({
+  expect,
+}) => {
   // Arrange
   const cacheMap = new Map();
   const key = "partial-abort-key";
   const controller1 = new AbortController();
   const controller2 = new AbortController();
-  const {
-    promise,
-    resolve,
-  } = Promise.withResolvers<void>();
+  const { promise, resolve } = Promise.withResolvers<void>();
   const fn = async (cbSignal: AbortSignal) => {
-    const {
-      reject,
-      promise: abortPromise,
-    } = Promise.withResolvers();
+    const { reject, promise: abortPromise } = Promise.withResolvers();
     cbSignal.addEventListener("abort", reject, { once: true });
     await Promise.race([promise, abortPromise]);
 
@@ -151,15 +139,14 @@ test("すべての呼び出し元が中断したとき、内部処理も中断�
   expect(cacheMap.has(key)).toBe(false); // 中断時はキャッシュが破棄される。
 });
 
-test("コールバックが例外を投げたとき、すべての待機者にエラーが伝播しキャッシュは作成されない", async ({ expect }) => {
+test("コールバックが例外を投げたとき、すべての待機者にエラーが伝播しキャッシュは作成されない", async ({
+  expect,
+}) => {
   // Arrange
   const cacheMap = new Map();
   const key = "error-key";
   const error = new Error("API Error");
-  const {
-    promise,
-    resolve,
-  } = Promise.withResolvers<void>();
+  const { promise, resolve } = Promise.withResolvers<void>();
   const fn = async () => {
     await promise;
     throw error;

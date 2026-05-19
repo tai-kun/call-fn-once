@@ -1,20 +1,11 @@
 {
-  "extends": [
-    "@tsconfig/node22",
-    "@tsconfig/strictest"
-  ],
-  "include": [
-    "../src/**/*"
-  ],
+  "extends": ["@tsconfig/node24", "@tsconfig/strictest"],
+  "include": ["./global.d.ts", "../src/**/*"],
   "compilerOptions": {
-    "types": [
-      "node"
-    ],
-    "lib": [
-      "DOM",
-      "ESNext"
-    ],
+    "types": ["node"],
+    "lib": ["DOM", "ESNext"],
     "noEmit": false,
+    "rootDir": "..",
     "outDir": "../dist",
     "declaration": true,
     "declarationMap": true,

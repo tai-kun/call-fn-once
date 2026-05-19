@@ -1,4 +1,5 @@
 import { isPromiseLike } from "@tai-kun/is-promise-like";
+
 import type { Promisable } from "./_types.js";
 
 /**
@@ -6,27 +7,29 @@ import type { Promisable } from "./_types.js";
  *
  * 実行中（busy: true）か、完了済み（busy: false）かによって、保持する値の意味が異なります。
  */
-type Cache = {
-  /**
-   * 現在、非同期処理が実行中であるかどうかを示すフラグです。
-   */
-  readonly busy: true;
+type Cache =
+  | {
+      /**
+       * 現在、非同期処理が実行中であるかどうかを示すフラグです。
+       */
+      readonly busy: true;
 
-  /**
-   * 実行中の非同期処理を表す Promise オブジェクトです。
-   */
-  readonly value: Promise<any>;
-} | {
-  /**
-   * 処理が完了し、結果が確定していることを示すフラグです。
-   */
-  readonly busy: false;
+      /**
+       * 実行中の非同期処理を表す Promise オブジェクトです。
+       */
+      readonly value: Promise<any>;
+    }
+  | {
+      /**
+       * 処理が完了し、結果が確定していることを示すフラグです。
+       */
+      readonly busy: false;
 
-  /**
-   * キャッシュされた実行結果の値です。
-   */
-  readonly value: any;
-};
+      /**
+       * キャッシュされた実行結果の値です。
+       */
+      readonly value: any;
+    };
 
 /**
  * 実行中の非同期処理を管理するための内部状態の型定義です。
@@ -106,7 +109,7 @@ export function callAbortableFnOnce<T>(
   cacheMap: callAbortableFnOnce.CacheMap,
   key: unknown,
   fn: (signal: AbortSignal) => T,
-  signal?: AbortSignal | undefined,
+  signal?: AbortSignal,
 ): callAbortableFnOnce.Return<T> {
   // すでにシグナルが中断されている場合は、即座にエラーを投げます。
   signal?.throwIfAborted();
@@ -162,8 +165,8 @@ export function callAbortableFnOnce<T>(
 
       // 元の Promise が完了した際の処理です。
       promise
-        .then(x => resolve(x))
-        .catch(x => reject(x))
+        .then((x) => resolve(x))
+        .catch((x) => reject(x))
         .finally(() => {
           // 処理が完了（成功または失敗）した場合は、イベントリスナーを解除します。
           signal.removeEventListener("abort", handleAbort);
@@ -215,7 +218,7 @@ export function callAbortableFnOnce<T>(
   if (isPromiseLike(ret)) {
     // Promise が解決または拒否された際の共通クリーンアップ処理を定義します。
     const innerPromise = Promise.resolve(ret).then(
-      val => {
+      (val) => {
         // 成功時は結果をキャッシュし、実行状態をクリアします。
         cacheMap.set(key, {
           busy: false,
@@ -225,7 +228,7 @@ export function callAbortableFnOnce<T>(
 
         return val;
       },
-      ex => {
+      (ex) => {
         // 失敗時はキャッシュおよび実行状態を削除します。
         cacheMap.delete(key);
         stateMap.delete(key);

@@ -6,10 +6,10 @@
 
 ## 特徴
 
-* **型安全**: TypeScript で書かれており、高度な型推論をサポート
-* **軽量**: 依存関係を最小限に抑えた設計
-* **効率的**: 非同期処理の競合（Race Condition）を防ぎ、リソースを最適化
-* **中断可能**: `AbortSignal` を利用した高度な実行制御
+- **型安全**: TypeScript で書かれており、高度な型推論をサポート
+- **軽量**: 依存関係を最小限に抑えた設計
+- **効率的**: 非同期処理の競合（Race Condition）を防ぎ、リソースを最適化
+- **中断可能**: `AbortSignal` を利用した高度な実行制御
 
 ## インストール
 
@@ -19,11 +19,11 @@ npm install call-fn-once
 
 ## 各関数の比較
 
-| 関数名 | 同期 | 非同期 | 中断可能 | 主な用途 |
-| :--- | :---: | :---: | :---: | :--- |
-| `callFnOnce` | ✅ | ❌ | ❌ | 同期的な重い計算のキャッシュ |
-| `callAsyncableFnOnce` | ✅ | ✅ | ❌ | API レスポンスやファイルの読み込み |
-| `callAbortableFnOnce` | ✅ | ✅ | ✅ | ユーザーの中断操作が伴う通信処理 |
+| 関数名                | 同期 | 非同期 | 中断可能 | 主な用途                           |
+| :-------------------- | :--: | :----: | :------: | :--------------------------------- |
+| `callFnOnce`          |  ✅  |   ❌   |    ❌    | 同期的な重い計算のキャッシュ       |
+| `callAsyncableFnOnce` |  ✅  |   ✅   |    ❌    | API レスポンスやファイルの読み込み |
+| `callAbortableFnOnce` |  ✅  |   ✅   |    ✅    | ユーザーの中断操作が伴う通信処理   |
 
 ## 使い方
 
@@ -78,7 +78,7 @@ async function startTask(userSignal: AbortSignal) {
     const data = await callAbortableFnOnce(
       cache,
       "abortable-key",
-      async signal => {
+      async (signal) => {
         // この signal は内部で管理されており、全ての呼び出し元の signal が abort されたら発火します。
         const res = await fetch("https://api.example.com/heavy-task", { signal });
         return await res.json();

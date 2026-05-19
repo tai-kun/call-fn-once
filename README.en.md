@@ -4,10 +4,10 @@ A utility library designed to cache function execution results and return the sa
 
 ## Features
 
-* **Type Safe**: Written in TypeScript with support for advanced type inference.
-* **Lightweight**: Designed with minimal dependencies.
-* **Efficient**: Prevents race conditions in asynchronous tasks and optimizes resource usage.
-* **Abortable**: Advanced execution control using `AbortSignal`.
+- **Type Safe**: Written in TypeScript with support for advanced type inference.
+- **Lightweight**: Designed with minimal dependencies.
+- **Efficient**: Prevents race conditions in asynchronous tasks and optimizes resource usage.
+- **Abortable**: Advanced execution control using `AbortSignal`.
 
 ## Installation
 
@@ -17,11 +17,11 @@ npm install call-fn-once
 
 ## Function Comparison
 
-| Function | Sync | Async | Abortable | Primary Use Case |
-| :--- | :---: | :---: | :---: | :--- |
-| `callFnOnce` | ✅ | ❌ | ❌ | Caching heavy synchronous computations. |
-| `callAsyncableFnOnce` | ✅ | ✅ | ❌ | API responses or file reading. |
-| `callAbortableFnOnce` | ✅ | ✅ | ✅ | Network requests involving user cancellation. |
+| Function              | Sync | Async | Abortable | Primary Use Case                              |
+| :-------------------- | :--: | :---: | :-------: | :-------------------------------------------- |
+| `callFnOnce`          |  ✅  |  ❌   |    ❌     | Caching heavy synchronous computations.       |
+| `callAsyncableFnOnce` |  ✅  |  ✅   |    ❌     | API responses or file reading.                |
+| `callAbortableFnOnce` |  ✅  |  ✅   |    ✅     | Network requests involving user cancellation. |
 
 ## Usage
 
@@ -76,8 +76,8 @@ async function startTask(userSignal: AbortSignal) {
     const data = await callAbortableFnOnce(
       cache,
       "abortable-key",
-      async signal => {
-        // This signal is managed internally and triggers 
+      async (signal) => {
+        // This signal is managed internally and triggers
         // only when all callers' signals are aborted.
         const res = await fetch("https://api.example.com/heavy-task", { signal });
         return await res.json();

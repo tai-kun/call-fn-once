@@ -1,4 +1,5 @@
 import { isPromiseLike } from "@tai-kun/is-promise-like";
+
 import type { Promisable } from "./_types.js";
 
 /**
@@ -53,14 +54,14 @@ export function callAsyncableFnOnce<T>(
   // 戻り値が Promise のよう（then メソッドを持つオブジェクトなど）であるかを確認します。
   if (isPromiseLike(ret)) {
     const innerPromise = Promise.resolve(ret).then(
-      val => {
+      (val) => {
         // 解決された値をキャッシュに保存します。
         // これにより、後続の呼び出しでは Promise ではなく解決後の値が返るようになります。
         cacheMap.set(key, val);
 
         return val;
       },
-      ex => {
+      (ex) => {
         // 非同期処理中にエラーが発生した場合は、不完全なキャッシュ（Promise）を削除します。
         cacheMap.delete(key);
 

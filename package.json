@@ -1,42 +1,51 @@
 {
   "name": "call-fn-once",
   "version": "0.0.0",
+  "description": "",
+  "homepage": "https://github.com/tai-kun/call-fn-once",
   "license": "MIT",
-  "description": "Calls a callback only once",
-  "sideEffects": false,
-  "type": "module",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
-    }
+  "author": "tai-kun",
+  "repository": {
+    "url": "https://github.com/tai-kun/call-fn-once"
   },
   "files": [
     "dist",
     "src",
     "package.json",
-    "LICENSE"
+    "LICENSE",
+    "README.md",
+    "README.en.md"
   ],
-  "homepage": "https://github.com/tai-kun/call-fn-once",
-  "repository": {
-    "url": "https://github.com/tai-kun/call-fn-once"
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "default": "./dist/src/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc --project ./.config/tsconfig.build.json"
   },
   "dependencies": {
     "@tai-kun/is-promise-like": "^0.0.5"
   },
   "devDependencies": {
-    "@tsconfig/node22": "^22.0.5",
+    "@tsconfig/node24": "^24.0.4",
     "@tsconfig/strictest": "^2.0.8",
-    "@types/node": "^22.19.15",
-    "@vitest/browser": "^4.1.2",
-    "@vitest/browser-playwright": "^4.1.2",
-    "dprint": "^0.53.1",
-    "npm-check-updates": "^19.6.6",
-    "playwright": "^1.58.2",
-    "typescript": "^5.9.3",
-    "vitest": "^4.1.2"
+    "@types/node": "^24.12.4",
+    "@vitest/browser": "^4.1.6",
+    "@vitest/browser-playwright": "^4.1.6",
+    "npm-check-updates": "^22.2.0",
+    "oxfmt": "0.45.0",
+    "oxlint": "1.60.0",
+    "oxlint-tsgolint": "0.21.1",
+    "playwright": "^1.60.0",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.12",
+    "vitest": "^4.1.6"
   },
-  "scripts": {
-    "build": "tsc --project ./.config/tsconfig.build.json"
-  }
+  "readme": "README.md"
 }

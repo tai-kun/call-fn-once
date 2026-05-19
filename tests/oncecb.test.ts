@@ -1,4 +1,5 @@
 import { describe, test, vi } from "vitest";
+
 import { callFnOnce } from "../src/call-fn-once.js";
 
 describe("キャッシュにキーが存在しない場合", () => {
@@ -38,7 +39,7 @@ describe("キャッシュに既にキーが存在する場合", () => {
     const key = "shared-key";
     const initialValue = "initial-value";
     cacheMap.set(key, initialValue);
-    const fn = vi.fn(() => "new-value");
+    const fn = vi.fn<() => string>(() => "new-value");
 
     // Act
     const result = callFnOnce(cacheMap, key, fn);
@@ -54,7 +55,7 @@ describe("コールバックの結果が特殊な値の場合", () => {
     // Arrange
     const cacheMap = new Map<string, undefined>();
     const key = "undefined-key";
-    const fn = vi.fn(() => undefined);
+    const fn = vi.fn<() => undefined>(() => undefined);
 
     // Act
     callFnOnce(cacheMap, key, fn); // 初回実行
@@ -67,13 +68,15 @@ describe("コールバックの結果が特殊な値の場合", () => {
 });
 
 describe("例外が発生した場合", () => {
-  test("コールバックが例外を投げたとき、キャッシュは保存されず、次の呼び出しで再度実行される", ({ expect }) => {
+  test("コールバックが例外を投げたとき、キャッシュは保存されず、次の呼び出しで再度実行される", ({
+    expect,
+  }) => {
     // Arrange
     const cacheMap = new Map<string, string>();
     const key = "error-key";
     const successValue = "success";
     let shouldThrow = true;
-    const fn = vi.fn(() => {
+    const fn = vi.fn<() => string>(() => {
       if (shouldThrow) {
         throw new Error("Temporary failure");
       }

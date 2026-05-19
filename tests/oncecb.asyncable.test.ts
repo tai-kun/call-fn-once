@@ -1,4 +1,5 @@
 import { describe, test, vi } from "vitest";
+
 import { callAsyncableFnOnce } from "../src/call-asyncable-fn-once.js";
 
 describe("同期処理のキャッシュ", () => {
@@ -6,7 +7,7 @@ describe("同期処理のキャッシュ", () => {
     // Arrange
     const cacheMap = new Map<unknown, any>();
     const key = "test-key";
-    const fn = vi.fn(() => "value");
+    const fn = vi.fn<() => string>(() => "value");
 
     // Act
     const result = callAsyncableFnOnce(cacheMap, key, fn);
@@ -21,7 +22,7 @@ describe("同期処理のキャッシュ", () => {
     // Arrange
     const cacheMap = new Map<unknown, any>();
     const key = "test-key";
-    const fn = vi.fn(() => "value");
+    const fn = vi.fn<() => string>(() => "value");
 
     // Act
     callAsyncableFnOnce(cacheMap, key, fn);
@@ -34,15 +35,14 @@ describe("同期処理のキャッシュ", () => {
 });
 
 describe("非同期処理（Promise）のキャッシュ", () => {
-  test("Promise が解決される前、同じキーでの呼び出しに対して同一の Promise インスタンスを返す", async ({ expect }) => {
+  test("Promise が解決される前、同じキーでの呼び出しに対して同一の Promise インスタンスを返す", async ({
+    expect,
+  }) => {
     // Arrange
     const cacheMap = new Map<unknown, any>();
     const key = "async-key";
-    const {
-      promise,
-      resolve,
-    } = Promise.withResolvers<void>();
-    const fn = vi.fn(async () => {
+    const { promise, resolve } = Promise.withResolvers<void>();
+    const fn = vi.fn<() => Promise<string>>(async () => {
       await promise;
       return "async-value";
     });
@@ -60,7 +60,9 @@ describe("非同期処理（Promise）のキャッシュ", () => {
     expect(result2).toBe("async-value");
   });
 
-  test("Promise が解決された後、キャッシュには Promise 自体ではなく解決された値が保存される", async ({ expect }) => {
+  test("Promise が解決された後、キャッシュには Promise 自体ではなく解決された値が保存される", async ({
+    expect,
+  }) => {
     // Arrange
     const cacheMap = new Map<unknown, any>();
     const key = "async-key";
@@ -76,7 +78,9 @@ describe("非同期処理（Promise）のキャッシュ", () => {
     expect(cachedValue).not.toBeInstanceOf(Promise);
   });
 
-  test("Promise が解決された後の呼び出しでは、await なしで即座に解決された値を返す", async ({ expect }) => {
+  test("Promise が解決された後の呼び出しでは、await なしで即座に解決された値を返す", async ({
+    expect,
+  }) => {
     // Arrange
     const cacheMap = new Map<unknown, any>();
     const key = "async-key";
@@ -91,12 +95,14 @@ describe("非同期処理（Promise）のキャッシュ", () => {
     expect(result).toBe("resolved-value");
   });
 
-  test("Promise が拒否された場合、キャッシュからキーが削除され、次回の呼び出しで再試行される", async ({ expect }) => {
+  test("Promise が拒否された場合、キャッシュからキーが削除され、次回の呼び出しで再試行される", async ({
+    expect,
+  }) => {
     // Arrange
     const cacheMap = new Map<unknown, any>();
     const key = "error-key";
     let shouldThrow = true;
-    const fn = vi.fn(async () => {
+    const fn = vi.fn<() => Promise<string>>(async () => {
       if (shouldThrow) {
         throw new Error("Temporary failure");
       }
