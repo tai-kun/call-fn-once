@@ -8,12 +8,12 @@ importers:
 
   .:
     dependencies:
+      abort-signal-utils:
+        specifier: ^0.0.2
+        version: 0.0.2
       maypromise:
         specifier: ^0.0.4
         version: 0.0.4
-      try-capture-stack-trace:
-        specifier: ^0.0.3
-        version: 0.0.3
     devDependencies:
       '@tsconfig/node24':
         specifier: ^24.0.4
@@ -519,6 +519,9 @@ packages:
 
   '@vitest/utils@4.1.6':
     resolution: {integrity: sha512-FxIY+U81R3LGKCxaHHFRQ5+g6/iRgGLmeHWdp2Amj4ljQRrEIWHmZyDfDYBRZlpyqA7qKxtS9DD1dhk8RnRIVQ==}
+
+  abort-signal-utils@0.0.2:
+    resolution: {integrity: sha512-dkti+X9MEn6rSbQ9mDoO9Eco9JO2eqlrvTaiJ6T/yXT8PyfT62xnX3dtmjdyEfIxonmJtav+MqmSFd71HX4S0Q==}
 
   assertion-error@2.0.1:
     resolution: {integrity: sha512-Izi8RQcffqCeNVgFigKli1ssklIbpHnCYc6AknXGYoB6grJqyeby7jv12JUQgmTAnIDnbck1uxksT4dzN3PWBA==}
@@ -1178,6 +1181,10 @@ snapshots:
       '@vitest/pretty-format': 4.1.6
       convert-source-map: 2.0.0
       tinyrainbow: 3.1.0
+
+  abort-signal-utils@0.0.2:
+    dependencies:
+      try-capture-stack-trace: 0.0.3
 
   assertion-error@2.0.1: {}
 

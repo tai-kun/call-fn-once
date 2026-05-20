@@ -1,7 +1,5 @@
+import { getAbortReason, throwIfAborted } from "abort-signal-utils";
 import { type Thenable, type MaybePromise, isThenable } from "maypromise";
-
-import getAbortReason from "./_get-abort-reason.js";
-import throwIfAborted from "./_throw-if-aborted.js";
 
 /**
  * キャッシュの状態を表す型定義です。

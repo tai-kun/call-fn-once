@@ -30,8 +30,8 @@
     "build": "tsc --project ./.config/tsconfig.build.json"
   },
   "dependencies": {
-    "maypromise": "^0.0.4",
-    "try-capture-stack-trace": "^0.0.3"
+    "abort-signal-utils": "^0.0.2",
+    "maypromise": "^0.0.4"
   },
   "devDependencies": {
     "@tsconfig/node24": "^24.0.4",
