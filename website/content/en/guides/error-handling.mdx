@@ -1,0 +1,124 @@
+---
+title: Error Handling
+description: How sync exceptions and async rejections affect the cache, and how to think about retries.
+---
+
+## Policy [#policy]
+
+- Only successful results are cached.
+- Failures are not cached, so the next call can run the function again.
+- The caller's exception or rejection reason is passed through as-is. It is never wrapped.
+
+## Sync exceptions [#sync-errors]
+
+When the callback throws, that call fails and the next call retries.
+
+```ts
+import { callFnOnce } from "call-fn-once";
+
+const cacheMap: callFnOnce.CacheMap = new Map();
+let callCount = 0;
+
+try {
+  callFnOnce(cacheMap, "key", () => {
+    callCount += 1;
+    throw new Error("boom");
+  });
+} catch {
+  // The first call fails.
+}
+
+const retried = callFnOnce(cacheMap, "key", () => {
+  callCount += 1;
+  return "recovered";
+});
+
+console.log(retried);
+console.log(callCount);
+```
+
+Sync exceptions from `callAsyncableFnOnce` and `callAbortableFnOnce` behave the same way. No state is left behind, so retrying is safe.
+
+## Async rejection [#async-rejection]
+
+When an async computation rejects, the cache is discarded so the next call can retry. Concurrent calls made before settlement receive the same rejection reason.
+
+```ts
+import { callAsyncableFnOnce } from "call-fn-once";
+
+const cacheMap: callAsyncableFnOnce.CacheMap = new Map();
+let callCount = 0;
+
+const failure = new Error("fail");
+
+const first = Promise.resolve(
+  callAsyncableFnOnce(cacheMap, "key", () => {
+    callCount += 1;
+    return Promise.reject(failure);
+  }),
+);
+
+const second = Promise.resolve(
+  callAsyncableFnOnce(cacheMap, "key", () => {
+    callCount += 1;
+    return Promise.resolve("unexpected");
+  }),
+);
+
+await first.catch((error: unknown) => error);
+await second.catch((error: unknown) => error);
+console.log(callCount);
+
+const retried = callAsyncableFnOnce(cacheMap, "key", () => {
+  callCount += 1;
+  return "recovered";
+});
+
+console.log(retried);
+console.log(callCount);
+```
+
+:::note
+Async failures of `callAbortableFnOnce` behave the same way. When the shared in-flight `Promise` rejects, the cache and internal state are discarded.
+:::
+
+## Retries [#retry]
+
+- Failures are not cached, so callers control retries.
+- This library does not manage retry counts or delays. Implement them on the caller side.
+- To distinguish transient from permanent failures, use different keys or `CacheMap`s.
+
+```ts retry.ts
+import { callAsyncableFnOnce } from "call-fn-once";
+
+const cacheMap: callAsyncableFnOnce.CacheMap = new Map();
+
+async function getConfig(): Promise<string> {
+  return callAsyncableFnOnce(cacheMap, "config", async () => "ok");
+}
+
+async function getConfigWithRetry(maxAttempts: number): Promise<string> {
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      return await getConfig();
+    } catch (error: unknown) {
+      lastError = error;
+    }
+  }
+
+  throw lastError;
+}
+```
+
+## Related pages [#related]
+
+<CardGroup cols={2}>
+  <Card title="callAsyncableFnOnce" href="../reference/call-asyncable-fn-once" icon="code">
+    Check the pending-sharing and rejection behavior.
+  </Card>
+  <Card title="callAbortableFnOnce" href="../reference/call-abortable-fn-once" icon="code">
+    Check the cache-discarding behavior on abort.
+  </Card>
+</CardGroup>

@@ -1,0 +1,140 @@
+---
+title: callAbortableFnOnce
+description: The spec of the function that supports sync and async values with cooperative aborting via AbortSignal.
+---
+
+Runs the callback once per key and caches the result. It accepts both sync and async values. For async values, the pending `Promise` is shared, and the settled value is reused afterwards. The running callback is aborted only when every caller has aborted.
+
+## Usage [#usage]
+
+The callback receives a signal for aborting the internal work. Pass the caller's signal as the 4th argument or in the options form.
+
+```ts
+import { callAbortableFnOnce } from "call-fn-once";
+
+const cacheMap: callAbortableFnOnce.CacheMap = new Map();
+const controller = new AbortController();
+
+const pending = callAbortableFnOnce(
+  cacheMap,
+  "user",
+  async (signal) => {
+    const res = await fetch("https://example.com/user", { signal });
+    return res.json();
+  },
+  controller.signal,
+);
+```
+
+In the options form, pass it via the `signal` field.
+
+```ts options.ts
+import { callAbortableFnOnce } from "call-fn-once";
+
+const cacheMap: callAbortableFnOnce.CacheMap = new Map();
+const controller = new AbortController();
+
+const pending = callAbortableFnOnce({
+  cacheMap,
+  key: "user",
+  fn: async (signal) => "ok",
+  signal: controller.signal,
+});
+```
+
+## Behavior [#behavior]
+
+### Sync execution [#sync-execution]
+
+- The callback receives a signal for aborting the internal work. Sync successes are cached as-is.
+- Sync exceptions leave no state behind and retry on the next call.
+- Passing an already-aborted signal throws the abort reason without running the function.
+
+### Async execution [#async-execution]
+
+- Pending async work is shared. After settlement it is cached as the settled value, and later calls return the value directly.
+- Async failures are not cached. The next call runs the function again.
+- Caches are independent per key.
+
+### Abort [#abort]
+
+The abort rules are as follows.
+
+- The internal work is not aborted while at least one waiting caller remains.
+- The internal work is aborted and the cache discarded only when every waiting caller has aborted.
+- The internal work is never aborted while a signal-less call remains. Internally, a dummy signal that never fires is registered as a waiter so the waiter set never becomes empty.
+- A settled cache entry is returned as a regular value. However, calling with an already-aborted signal still throws the abort reason, even when cached.
+
+```ts abort.ts
+import { callAbortableFnOnce } from "call-fn-once";
+
+const cacheMap: callAbortableFnOnce.CacheMap = new Map();
+const firstController = new AbortController();
+const secondController = new AbortController();
+
+const first = callAbortableFnOnce(
+  cacheMap,
+  "key",
+  (signal) => fetch("https://example.com/data", { signal }),
+  firstController.signal,
+);
+
+const second = callAbortableFnOnce(
+  cacheMap,
+  "key",
+  (signal) => fetch("https://example.com/data", { signal }),
+  secondController.signal,
+);
+
+// Aborting only the first call keeps the inner fetch running.
+firstController.abort();
+
+// Aborting the second call too leaves no waiters, so the internal work aborts.
+secondController.abort();
+```
+
+:::tip
+Abort reasons are read with `getAbortReason` from `abort-signal-utils` and checked upfront with `throwIfAborted`. Reasons pass through as-is, so per-caller reasons never mix.
+:::
+
+## Types [#types]
+
+<TypeTable
+  type={{
+    cacheMap: {
+      type: "callAbortableFnOnce.CacheMap",
+      required: true,
+      description: "A Map object that holds results. It keeps running and settled states separately.",
+    },
+    key: {
+      type: "unknown",
+      required: true,
+      description: "A unique key identifying the cache entry.",
+    },
+    fn: {
+      type: "(signal: AbortSignal) => T",
+      required: true,
+      description: "The callback function to run. It receives a signal for aborting the internal work.",
+    },
+    signal: {
+      type: "AbortSignal",
+      required: false,
+      description: "An abort signal passed by the caller. Can be omitted.",
+    },
+  }}
+/>
+
+The return type is `callAbortableFnOnce.Return<T>`. When `T` is a thenable it wraps the resolved value in `MaybePromise`; otherwise it stays as `T`.
+
+Cached values are held as `callAbortableFnOnce.Cache`. Running entries store `busy: true` with a `Promise`, and settled entries store `busy: false` with the settled value.
+
+## Related pages [#related]
+
+<CardGroup cols={2}>
+  <Card title="callAsyncableFnOnce" href="./call-asyncable-fn-once" icon="code">
+    Check the async-sharing spec for when aborting is unnecessary.
+  </Card>
+  <Card title="Abort Patterns" href="../guides/abort-patterns" icon="book-open">
+    Learn how waiters and dummy signals work.
+  </Card>
+</CardGroup>

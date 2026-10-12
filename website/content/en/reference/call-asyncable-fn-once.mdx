@@ -1,0 +1,133 @@
+---
+title: callAsyncableFnOnce
+description: The spec of the function that accepts sync and async values and shares the pending Promise.
+---
+
+Runs the callback once per key and caches the result. It accepts both sync and async values. For async values, the pending `Promise` is shared, and the settled value is reused afterwards.
+
+## Usage [#usage]
+
+Sync values behave the same as `callFnOnce`. Returning an async value shares the same `Promise` until it settles.
+
+```ts
+import { callAsyncableFnOnce } from "call-fn-once";
+
+const cacheMap: callAsyncableFnOnce.CacheMap = new Map();
+
+const pending = callAsyncableFnOnce(cacheMap, "user", async () => {
+  const res = await fetch("https://example.com/user");
+  return res.json();
+});
+```
+
+The options form returns the same result.
+
+```ts options.ts
+import { callAsyncableFnOnce } from "call-fn-once";
+
+const cacheMap: callAsyncableFnOnce.CacheMap = new Map();
+
+const pending = callAsyncableFnOnce({
+  cacheMap,
+  key: "user",
+  fn: async () => "ok",
+});
+```
+
+## Behavior [#behavior]
+
+### Sync values [#sync-values]
+
+- Sync values are cached as returned.
+- `undefined` is cached correctly.
+- Sync exceptions are not cached. The next call runs the function again.
+
+### Async values [#async-values]
+
+- Concurrent calls before settlement are merged into a single run, so the callback runs only once.
+- After settlement, the cache is replaced with the settled value, and later calls return the value directly instead of a `Promise`.
+- On rejection the cache is discarded, so the next call can retry. Concurrent waiters all receive the rejection.
+- Non-`Promise` thenables are treated as async too.
+
+```ts
+import { callAsyncableFnOnce } from "call-fn-once";
+
+const cacheMap: callAsyncableFnOnce.CacheMap = new Map();
+let callCount = 0;
+
+const first = Promise.resolve(
+  callAsyncableFnOnce(cacheMap, "key", () => {
+    callCount += 1;
+    return Promise.resolve("ok");
+  }),
+);
+
+const second = Promise.resolve(
+  callAsyncableFnOnce(cacheMap, "key", () => {
+    callCount += 1;
+    return Promise.resolve("unexpected");
+  }),
+);
+
+await first;
+await second;
+console.log(callCount);
+
+const cached = callAsyncableFnOnce(cacheMap, "key", () => {
+  throw new Error("Never reruns after settlement");
+});
+
+console.log(cached);
+```
+
+:::note
+An `undefined` settled value is also cached as the settled value.
+:::
+
+## Types [#types]
+
+<TypeTable
+  type={{
+    cacheMap: {
+      type: "callAsyncableFnOnce.CacheMap",
+      required: true,
+      description: "A Map object that holds results. It holds sync values or async values before and after settlement.",
+    },
+    key: {
+      type: "unknown",
+      required: true,
+      description: "A unique key identifying the cache entry.",
+    },
+    fn: {
+      type: "() => T",
+      required: true,
+      description: "The callback function to run. It can return either a sync or an async value.",
+    },
+  }}
+/>
+
+The return type is `callAsyncableFnOnce.Return<T>`. When `T` is a thenable it wraps the resolved value in `MaybePromise`; otherwise it stays as `T`.
+
+```ts types.ts
+import { callAsyncableFnOnce } from "call-fn-once";
+
+const cacheMap: callAsyncableFnOnce.CacheMap = new Map();
+
+const syncValue: number = callAsyncableFnOnce(cacheMap, "sync", () => 1);
+const asyncValue: number | Promise<number> = callAsyncableFnOnce(
+  cacheMap,
+  "async",
+  () => Promise.resolve(1),
+);
+```
+
+## Related pages [#related]
+
+<CardGroup cols={2}>
+  <Card title="callFnOnce" href="./call-fn-once" icon="code">
+    Check the spec for sync-only work.
+  </Card>
+  <Card title="callAbortableFnOnce" href="./call-abortable-fn-once" icon="code">
+    Check the spec for work that needs aborting.
+  </Card>
+</CardGroup>

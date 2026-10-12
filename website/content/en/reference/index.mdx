@@ -1,0 +1,40 @@
+---
+title: Reference
+description: A hub for checking the arguments, return values, and differences of the three functions.
+---
+
+Pick a page that matches your use case.
+
+## Overview [#overview]
+
+| Function | Use case |
+| --- | --- |
+| `callFnOnce` | Share results of sync work |
+| `callAsyncableFnOnce` | Also share pending async work |
+| `callAbortableFnOnce` | Additionally support aborting |
+
+<CardGroup cols={3}>
+  <Card title="callFnOnce" href="./call-fn-once" icon="code">
+    Check the sync-only spec.
+  </Card>
+  <Card title="callAsyncableFnOnce" href="./call-asyncable-fn-once" icon="code">
+    Check the spec covering both sync and async.
+  </Card>
+  <Card title="callAbortableFnOnce" href="./call-abortable-fn-once" icon="code">
+    Check the abort-aware spec.
+  </Card>
+</CardGroup>
+
+## Common argument forms [#common-forms]
+
+All three functions accept the following two calling conventions.
+
+```ts forms.ts
+// Positional form
+callFnOnce(cacheMap, key, fn);
+
+// Options form
+callFnOnce({ cacheMap, key, fn });
+```
+
+The positional and options forms share the same cache. Pick whichever reads better at each call site.

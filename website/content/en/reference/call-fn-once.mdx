@@ -1,0 +1,108 @@
+---
+title: callFnOnce
+description: The spec of the function that runs a sync function once per key and shares the result.
+---
+
+Runs the callback once per key and caches the result. Later calls with the same key return the cached result without running it again.
+
+## Usage [#usage]
+
+```ts
+import { callFnOnce } from "call-fn-once";
+
+const cacheMap: callFnOnce.CacheMap = new Map();
+
+const result = callFnOnce(cacheMap, "key", () => 42);
+```
+
+The options form returns the same result.
+
+```ts options.ts
+import { callFnOnce } from "call-fn-once";
+
+const cacheMap: callFnOnce.CacheMap = new Map();
+
+const result = callFnOnce({
+  cacheMap,
+  key: "key",
+  fn: () => 42,
+});
+```
+
+## Behavior [#behavior]
+
+- `undefined` results are cached too, because existence is checked with `has()`.
+- Cached objects are returned by the same reference.
+- A sync exception is not cached. The next call runs the function again.
+- Caches are independent per key.
+- Caches are independent per `CacheMap`. Use a separate `Map` when the use cases differ.
+
+```ts
+import { callFnOnce } from "call-fn-once";
+
+const cacheMap: callFnOnce.CacheMap = new Map();
+let callCount = 0;
+
+callFnOnce(cacheMap, "key", () => {
+  callCount += 1;
+
+  return undefined;
+});
+
+const cached = callFnOnce(cacheMap, "key", () => {
+  callCount += 1;
+
+  return "second";
+});
+
+console.log(cached);
+console.log(callCount);
+```
+
+:::warning
+Passing an async function caches the `Promise` object itself. It does not share the pending state or retry on rejection. Use `callAsyncableFnOnce` for async work.
+:::
+
+## Types [#types]
+
+<TypeTable
+  type={{
+    cacheMap: {
+      type: "callFnOnce.CacheMap",
+      required: true,
+      description: "A Map object that holds results. It stores arbitrary values as keys and computed results as values.",
+    },
+    key: {
+      type: "unknown",
+      required: true,
+      description: "A unique key identifying the cache entry.",
+    },
+    fn: {
+      type: "() => T",
+      required: true,
+      description: "The callback function to run.",
+    },
+  }}
+/>
+
+The return type is `callFnOnce.Return<T>`, which is the same as `T`.
+
+```ts types.ts
+import { callFnOnce } from "call-fn-once";
+
+const cacheMap: callFnOnce.CacheMap = new Map();
+
+const num: number = callFnOnce(cacheMap, "num", () => 1);
+const nothing: undefined = callFnOnce(cacheMap, "nothing", () => undefined);
+```
+
+## Related pages [#related]
+
+<CardGroup cols={2}>
+  <Card title="callAsyncableFnOnce" href="./call-asyncable-fn-once" icon="code">
+    Use it to also share pending async work.
+  </Card>
+  <Card title="Error Handling" href="../guides/error-handling" icon="book-open">
+    Learn how retries work for exceptions and rejections.
+  </Card>
+</CardGroup>

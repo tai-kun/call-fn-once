@@ -1,0 +1,59 @@
+---
+title: Call Fn Once
+description: A small TypeScript utility that runs a callback function only once per key and shares the result.
+---
+
+A small TypeScript utility that runs a callback function only once per key, then caches and shares the result. It provides three functions for different use cases.
+
+## Features [#features]
+
+- Manage results with a key and `Map` combination.
+- Share sync values directly and async values as a pending `Promise`.
+- Never cache failures, so the next call can retry.
+- In the abortable variant, abort the underlying work only when every waiting caller has aborted.
+- Only depends on `abort-signal-utils` and `maypromise`, with no framework dependencies.
+
+## Choosing a function [#choosing-a-function]
+
+| Function | Use case | Sync | Async | Abort |
+| --- | --- | --- | --- | --- |
+| `callFnOnce` | Memoize sync work | ○ | — | — |
+| `callAsyncableFnOnce` | Mix sync and async work | ○ | ○ | — |
+| `callAbortableFnOnce` | Abort from the outside | ○ | ○ | ○ |
+
+When in doubt, choose `callFnOnce` for sync-only work, `callAsyncableFnOnce` when async work is involved, and `callAbortableFnOnce` when callers need to abort.
+
+## Quick start [#quick-start]
+
+```ts
+import { callFnOnce } from "call-fn-once";
+
+const cacheMap: callFnOnce.CacheMap = new Map();
+
+const first = callFnOnce(cacheMap, "config", () => {
+  return { timeout: 3000 };
+});
+
+const second = callFnOnce(cacheMap, "config", () => {
+  throw new Error("Never runs the second time");
+});
+
+console.log(first === second);
+```
+
+The second call skips the callback and returns the first result as-is. See the quick start for the full walkthrough.
+
+<CardGroup cols={2}>
+  <Card title="Installation" href="./getting-started/installation" icon="download">
+    Learn how to add the package and check the requirements.
+  </Card>
+  <Card title="Quick Start" href="./getting-started/quick-start" icon="rocket">
+    Learn the positional and options forms of the basic usage.
+  </Card>
+  <Card title="Reference" href="./reference" icon="code">
+    Check the arguments and return values of the three functions in detail.
+  </Card>
+  <Card title="Guides" href="./guides" icon="book-open">
+    Learn practical topics such as key design and error handling.
+  </Card>
+</CardGroup>
