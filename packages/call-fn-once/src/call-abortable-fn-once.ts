@@ -164,6 +164,14 @@ function attachAbort(
         stateMap.delete(key);
       }
 
+      // 破棄する共有 Promise の拒否が unhandled にならないよう、ダミーの拒否ハンドラを付けます。
+      // 新規実行の即時拒否では内部 Promise が孤児化し、他にハンドラがないまま拒否されうるためです。
+      // 待機者が残る場合も余分なハンドラとして無害です。
+      void promise.then(
+        undefined,
+        () => {},
+      );
+
       return reject(getAbortReason(signal));
     }
 
