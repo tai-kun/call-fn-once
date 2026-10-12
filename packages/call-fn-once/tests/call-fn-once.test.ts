@@ -3,7 +3,7 @@ import { describe, expectTypeOf, test } from "vitest";
 import { callAsyncableFnOnce } from "../src/call-asyncable-fn-once.js";
 import { callFnOnce } from "../src/call-fn-once.js";
 import { ReentrantCallError } from "../src/errors.js";
-import { captureThrow } from "./_helpers.js";
+import { captureThrow, createCounter } from "./_helpers.js";
 
 describe("callFnOnce", () => {
   test("初回の実行結果を返す", ({ expect }) => {
@@ -20,45 +20,45 @@ describe("callFnOnce", () => {
   test("2 回目以降は関数を実行せず、キャッシュを返す", ({ expect }) => {
     // 準備
     const cacheMap: callFnOnce.CacheMap = new Map();
-    let callCount = 0;
+    const counter = createCounter();
     callFnOnce(cacheMap, "key", () => {
-      callCount += 1;
+      counter.increment();
 
       return "first";
     });
 
     // 実行
     const result = callFnOnce(cacheMap, "key", () => {
-      callCount += 1;
+      counter.increment();
 
       return "second";
     });
 
     // 検証
     expect(result).toBe("first");
-    expect(callCount).toBe(1);
+    expect(counter.getCount()).toBe(1);
   });
 
   test("undefined をキャッシュする", ({ expect }) => {
     // 準備
     const cacheMap: callFnOnce.CacheMap = new Map();
-    let callCount = 0;
+    const counter = createCounter();
     callFnOnce(cacheMap, "key", () => {
-      callCount += 1;
+      counter.increment();
 
       return undefined;
     });
 
     // 実行
     const result = callFnOnce(cacheMap, "key", () => {
-      callCount += 1;
+      counter.increment();
 
       return "second";
     });
 
     // 検証
     expect(result).toBe(undefined);
-    expect(callCount).toBe(1);
+    expect(counter.getCount()).toBe(1);
   });
 
   test("キャッシュしたオブジェクトは同一参照で返す", ({ expect }) => {
@@ -79,17 +79,17 @@ describe("callFnOnce", () => {
     // 準備
     const cacheMap: callFnOnce.CacheMap = new Map();
     const failure = new Error("boom");
-    let callCount = 0;
+    const counter = createCounter();
 
     // 実行
     const caught = captureThrow(() => {
       callFnOnce(cacheMap, "key", () => {
-        callCount += 1;
+        counter.increment();
         throw failure;
       });
     });
     const retried = callFnOnce(cacheMap, "key", () => {
-      callCount += 1;
+      counter.increment();
 
       return "recovered";
     });
@@ -97,15 +97,15 @@ describe("callFnOnce", () => {
     // 検証
     expect(caught).toBe(failure);
     expect(retried).toBe("recovered");
-    expect(callCount).toBe(2);
+    expect(counter.getCount()).toBe(2);
   });
 
   test("キーごとに独立してキャッシュする", ({ expect }) => {
     // 準備
     const cacheMap: callFnOnce.CacheMap = new Map();
-    let callCount = 0;
+    const counter = createCounter();
     const fn = (value: string) => {
-      callCount += 1;
+      counter.increment();
 
       return value;
     };
@@ -119,7 +119,7 @@ describe("callFnOnce", () => {
     expect(first).toBe("A");
     expect(second).toBe("B");
     expect(cached).toBe("A");
-    expect(callCount).toBe(2);
+    expect(counter.getCount()).toBe(2);
   });
 
   test("キャッシュ Map ごとに独立している", ({ expect }) => {
@@ -139,14 +139,14 @@ describe("callFnOnce", () => {
   test("オプション形式でも実行結果を返してキャッシュする", ({ expect }) => {
     // 準備
     const cacheMap: callFnOnce.CacheMap = new Map();
-    let callCount = 0;
+    const counter = createCounter();
 
     // 実行
     const first = callFnOnce({
       cacheMap,
       key: "key",
       fn: () => {
-        callCount += 1;
+        counter.increment();
 
         return "first";
       },
@@ -155,7 +155,7 @@ describe("callFnOnce", () => {
       cacheMap,
       key: "key",
       fn: () => {
-        callCount += 1;
+        counter.increment();
 
         return "second";
       },
@@ -164,15 +164,15 @@ describe("callFnOnce", () => {
     // 検証
     expect(first).toBe("first");
     expect(second).toBe("first");
-    expect(callCount).toBe(1);
+    expect(counter.getCount()).toBe(1);
   });
 
   test("位置引数とオプション形式でキャッシュを共有する", ({ expect }) => {
     // 準備
     const cacheMap: callFnOnce.CacheMap = new Map();
-    let callCount = 0;
+    const counter = createCounter();
     callFnOnce(cacheMap, "key", () => {
-      callCount += 1;
+      counter.increment();
 
       return "first";
     });
@@ -182,7 +182,7 @@ describe("callFnOnce", () => {
       cacheMap,
       key: "key",
       fn: () => {
-        callCount += 1;
+        counter.increment();
 
         return "second";
       },
@@ -190,19 +190,19 @@ describe("callFnOnce", () => {
 
     // 検証
     expect(result).toBe("first");
-    expect(callCount).toBe(1);
+    expect(counter.getCount()).toBe(1);
   });
 
   describe("再入", () => {
     test("同一キーでの同期的な再呼び出しは投げて再実行できる", ({ expect }) => {
       // 準備
       const cacheMap: callFnOnce.CacheMap = new Map();
-      let callCount = 0;
+      const counter = createCounter();
 
       // 実行
       const caught = captureThrow(() => {
         callFnOnce(cacheMap, "key", () => {
-          callCount += 1;
+          counter.increment();
           callFnOnce(cacheMap, "key", () => "inner");
 
           return "outer";
@@ -212,14 +212,14 @@ describe("callFnOnce", () => {
       // 検証
       expect(caught).toBeInstanceOf(ReentrantCallError);
       expect((caught as ReentrantCallError).code).toBe("ERR_CALL_FN_ONCE_REENTRANT_CALL");
-      expect(callCount).toBe(1);
+      expect(counter.getCount()).toBe(1);
       const retried = callFnOnce(cacheMap, "key", () => {
-        callCount += 1;
+        counter.increment();
 
         return "recovered";
       });
       expect(retried).toBe("recovered");
-      expect(callCount).toBe(2);
+      expect(counter.getCount()).toBe(2);
     });
 
     test("異なるキーでの再入は許可する", ({ expect }) => {
@@ -240,12 +240,12 @@ describe("callFnOnce", () => {
     test("関数をまたいだ同一キーでの再入は投げる", ({ expect }) => {
       // 準備
       const cacheMap = new Map<unknown, any>();
-      let callCount = 0;
+      const counter = createCounter();
 
       // 実行
       const caught = captureThrow(() => {
         callFnOnce(cacheMap, "key", () => {
-          callCount += 1;
+          counter.increment();
           callAsyncableFnOnce(cacheMap, "key", () => "inner");
 
           return "outer";
@@ -254,14 +254,14 @@ describe("callFnOnce", () => {
 
       // 検証
       expect(caught).toBeInstanceOf(ReentrantCallError);
-      expect(callCount).toBe(1);
+      expect(counter.getCount()).toBe(1);
       const retried = callFnOnce(cacheMap, "key", () => {
-        callCount += 1;
+        counter.increment();
 
         return "recovered";
       });
       expect(retried).toBe("recovered");
-      expect(callCount).toBe(2);
+      expect(counter.getCount()).toBe(2);
     });
   });
 

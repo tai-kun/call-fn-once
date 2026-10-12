@@ -72,126 +72,245 @@ export namespace callAbortableFnOnce {
 }
 
 /**
- * 実行中の処理に対する中断制御と待機シグナルを保持します。
- * 新規実行時に作成され、解決するか全員が中断するまで維持されます。
- * 世代判定に使うため、確定時は登録との一致を確認します。
+ * 実行中の処理に対する中断制御と待機者の情報を保持します。
+ *
+ * 新規実行時に作成し、確定するかすべての待機者が中断するまで保持します。
  */
 type State = {
   /**
-   * 内部処理を中断させるためのコントローラーです。
-   * すべての待機者が中断したときだけ内部処理を中断させます。
-   * 実行関数に渡すシグナルの発行元になります。
+   * 内部処理を中断するためのコントローラーです。
+   *
+   * すべての待機者が中断したときにだけ内部処理を中断するために使います。
    */
   readonly ctrl: AbortController;
 
   /**
-   * 処理の完了を待っている待機者のシグナル集合です。
-   * シグナル未指定の待機者も数に含めるため、ダミーシグナルとして登録されます。
-   * 空になったときは内部処理を中断し、登録を削除します。
+   * 完了を待っている待機者のシグナル集合です。
+   *
+   * シグナルを指定しない待機者も数えるため、ダミーシグナルとして登録します。
    */
   readonly sigs: Set<AbortSignal>;
 };
 
 /**
  * キャッシュマップごとに対応する中断状態のマップを保持します。
- * 実行中のキーの状態を世代管理するために使います。
- * 弱参照で保持するため、破棄後は自動的に解放されます。
- * 確定時と全員の中断時に該当キーを削除します。
+ *
+ * 弱参照で保持するため、キャッシュマップが回収されると自動的に解放されます。
  */
-const stateMapMap = /*#__PURE__*/ new WeakMap<callAbortableFnOnce.CacheMap, Map<unknown, State>>();
+const statesByCacheMap = /*#__PURE__*/ new WeakMap<
+  callAbortableFnOnce.CacheMap,
+  Map<unknown, State>
+>();
 
 /**
- * シグナル未指定の待機者も数に含めるためのダミーシグナルです。
- * 中断されることがないため、待機数の管理だけに使います。
- * シグナル未指定時も集合が空にならないように登録されます。
+ * シグナルを指定しない待機者も数えるためのダミーシグナルです。
+ *
+ * 中断しないダミーとして、待機者を数えるためだけに使います。
  */
 const dummySignal = /*#__PURE__*/ new AbortController().signal;
 
 /**
- * 指定されたキャッシュに対応する中断状態のマップを取得または作成します。
- * 初回利用時に作成し、以降は同一のマップを再利用します。
+ * 指定されたキャッシュマップに対応する中断状態のマップを取得します。
  *
- * @param cacheMap 状態を取り出す対象のキャッシュを指定します。
- * @returns 対象キャッシュに対応する中断状態のマップを返します。
+ * 存在しないときは作成して返します。
  */
 function getOrCreateStateMap(cacheMap: callAbortableFnOnce.CacheMap): Map<unknown, State> {
-  let stateMap = stateMapMap.get(cacheMap);
-  if (!stateMap) {
-    stateMap = new Map();
-    stateMapMap.set(cacheMap, stateMap);
+  const existing = statesByCacheMap.get(cacheMap);
+  if (existing) {
+    return existing;
   }
 
-  return stateMap;
+  const created = new Map<unknown, State>();
+  statesByCacheMap.set(cacheMap, created);
+
+  return created;
 }
 
 /**
- * 待機者の中断を監視し、中断時に共有を解除する Promise を返します。
- * シグナル未指定時は共有 Promise をそのまま返します。
- * 登録時点で中断済みの場合は即座に拒否する Promise を返します。
- * 最後の待機者が中断したときだけ内部処理を中断し、登録を削除します。
- * 共有 Promise の確定後は中断監視を取り外します。
- *
- * @param promise 共有する実行中の Promise を指定します。
- * @param state 中断制御と待機者集合を保持する状態を指定します。
- * @param cacheMap 削除対象のキャッシュを指定します。
- * @param key 削除対象のキーを指定します。
- * @param signal 監視する待機者の中断シグナルを指定します。
- * @param stateMap 削除対象の中断状態のマップを指定します。
- * @returns 中断監視付きの Promise を返します。
+ * 新規実行に対応する中断状態を作成します。
  */
-function attachAbort(
-  promise: Promise<any>,
-  state: State,
-  cacheMap: callAbortableFnOnce.CacheMap,
-  key: unknown,
-  signal: AbortSignal | undefined,
-  stateMap: Map<unknown, State>,
-): Promise<any> {
-  // 中断シグナルがなければ、そのまま返します。
+function createState(): State {
+  return {
+    ctrl: new AbortController(),
+    sigs: new Set<AbortSignal>(),
+  };
+}
+
+/**
+ * 呼び出し元を待機者として登録します。
+ *
+ * シグナルを指定しない待機者はダミーシグナルを登録し、集合が空になるのを防ぎます。
+ */
+function addWaiter(state: State, signal: AbortSignal | undefined): void {
+  state.sigs.add(signal ?? dummySignal);
+}
+
+/**
+ * 待機者を外すときの指定です。
+ */
+type RemoveWaiterOptions = {
+  /**
+   * 待機者の集合を持つ世代の状態を指定します。
+   */
+  state: State;
+
+  /**
+   * 世代が変わったかを判定するための状態マップを指定します。
+   */
+  stateMap: Map<unknown, State>;
+
+  /**
+   * 世代の判定と後処理に使うキャッシュマップを指定します。
+   */
+  cacheMap: callAbortableFnOnce.CacheMap;
+
+  /**
+   * 処理対象のキーを指定します。
+   */
+  key: unknown;
+
+  /**
+   * 集合から外す待機者のシグナルを指定します。
+   */
+  signal: AbortSignal;
+
+  /**
+   * 世代を照合するための共有 Promise を指定します。
+   */
+  promise: Promise<any>;
+
+  /**
+   * 内部処理の中断と待機者の拒否に共用する中断理由を指定します。
+   *
+   * 取得のたびに別物になる環境でも同一性を保ちます。
+   * 呼び出し元で 1 度だけ取得します。
+   */
+  reason: unknown;
+};
+
+/**
+ * 待機者を集合から外し、最後の待機者だったときだけ内部処理を中断します。
+ *
+ * 世代が変わっていたときは古い中断で新しい世代に触れないよう何もしません。
+ * 手動で確定済みに上書きしたときは新しい世代とみなします。
+ * 値は残し、状態だけ外します。
+ */
+function removeWaiterAndAbortIfLast(options: RemoveWaiterOptions): void {
+  const { key, state, reason, signal, promise, cacheMap, stateMap } = options;
+  state.sigs.delete(signal);
+
+  if (state.sigs.size !== 0) {
+    return;
+  }
+
+  if (stateMap.get(key) !== state) {
+    return;
+  }
+
+  state.ctrl.abort(reason);
+
+  // 手動で確定済みに上書きしたときは、新しい世代の値を消さずに残します。
+  if (cacheMap.get(key)?.value === promise) {
+    cacheMap.delete(key);
+  }
+
+  stateMap.delete(key);
+}
+
+/**
+ * 共有から外れた Promise の拒否が `unhandledRejection` にならないようにします。
+ *
+ * ダミーの拒否ハンドラーを付けて `unhandledRejection` の報告を抑えます。
+ */
+function suppressUnhandledRejection(promise: Promise<any>): void {
+  void promise.then(undefined, () => {});
+}
+
+/**
+ * 待機者の中断の監視を付けるときの指定です。
+ */
+type AttachAbortOptions = {
+  /**
+   * 待機者が共有する Promise を指定します。
+   */
+  promise: Promise<any>;
+
+  /**
+   * 待機者の集合を持つ世代の状態を指定します。
+   */
+  state: State;
+
+  /**
+   * 世代の判定と後処理に使うキャッシュマップを指定します。
+   */
+  cacheMap: callAbortableFnOnce.CacheMap;
+
+  /**
+   * 処理対象のキーを指定します。
+   */
+  key: unknown;
+
+  /**
+   * 監視する待機者のシグナルを指定します。
+   *
+   * 指定しないときは監視しません。
+   */
+  signal: AbortSignal | undefined;
+
+  /**
+   * 世代が変わったかを判定するための状態マップを指定します。
+   */
+  stateMap: Map<unknown, State>;
+};
+
+/**
+ * 待機者の中断を監視し、中断時に共有を解除する Promise を返します。
+ *
+ * シグナルを指定しないときは共有 Promise をそのまま返します。
+ * 登録時点で中断済みのときは即座に拒否する Promise を返します。
+ * この即時分岐は新規実行で fn の実行中に同期中断したときだけ通ります。
+ * 既存の実行に参加するときは開始時の `throwIfAborted` でこの関数はすでに投げます。
+ * そのため既存の実行では待機者がここで中断済みになることはありません。
+ */
+function attachAbort(options: AttachAbortOptions): Promise<any> {
+  const { key, state, signal, promise, cacheMap, stateMap } = options;
+
+  // シグナルがないときはそのまま返します。
   if (!signal) {
     return promise;
   }
 
   return new Promise((resolve, reject) => {
-    // 登録時点で中断済みなら、待機集合から外して即座に拒否します。
-    // fn 実行中に同期中断した場合が該当し、最後の 1 人なら内部処理を中断して登録を削除します。
+    // fn の実行中に同期中断したときが該当します。
+    // 最後の待機者なら内部処理を中断します。
     if (signal.aborted) {
-      state.sigs.delete(signal);
+      const reason = getAbortReason(signal);
+      removeWaiterAndAbortIfLast({
+        key,
+        state,
+        reason,
+        signal,
+        promise,
+        cacheMap,
+        stateMap,
+      });
+      suppressUnhandledRejection(promise);
 
-      if (state.sigs.size === 0 && stateMap.get(key) === state) {
-        state.ctrl.abort(getAbortReason(signal));
-        cacheMap.delete(key);
-        stateMap.delete(key);
-      }
-
-      // 破棄する共有 Promise の拒否が unhandled にならないよう、ダミーの拒否ハンドラを付けます。
-      // 新規実行の即時拒否では内部 Promise が孤児化し、他にハンドラがないまま拒否されうるためです。
-      // 待機者が残る場合も余分なハンドラとして無害です。
-      void promise.then(
-        undefined,
-        () => {},
-      );
-
-      return reject(getAbortReason(signal));
+      return reject(reason);
     }
 
-    /**
-     * 待機者の中断時に共有の解除と Promise の拒否を行います。
-     * 集合から自身を取り除き、最後の 1 人だった場合だけ内部処理を中断し、登録を削除します。
-     * 中断理由で拒否した後は、以降の確定を無視します。
-     */
     const handleAbort = (): void => {
-      state.sigs.delete(signal);
-
-      // 待機者がいなくなったときだけ、内部処理を中断してキャッシュを破棄します。
-      // 確定後などで世代が変わっていたら、古い中断で新世代に触らないようにします。
-      if (state.sigs.size === 0 && stateMap.get(key) === state) {
-        state.ctrl.abort(getAbortReason(signal));
-        cacheMap.delete(key);
-        stateMap.delete(key);
-      }
-
-      reject(getAbortReason(signal));
+      const reason = getAbortReason(signal);
+      removeWaiterAndAbortIfLast({
+        key,
+        state,
+        reason,
+        signal,
+        promise,
+        cacheMap,
+        stateMap,
+      });
+      reject(reason);
     };
 
     signal.addEventListener("abort", handleAbort, { once: true });
@@ -203,6 +322,216 @@ function attachAbort(
         signal.removeEventListener("abort", handleAbort);
       });
   });
+}
+
+/**
+ * 確定内容でキャッシュマップを更新するときの指定です。
+ */
+type SettleOptions = {
+  /**
+   * 世代が変わったかを判定するための状態マップを指定します。
+   */
+  stateMap: Map<unknown, State>;
+
+  /**
+   * 世代の判定と更新に使うキャッシュマップを指定します。
+   */
+  cacheMap: callAbortableFnOnce.CacheMap;
+
+  /**
+   * 処理対象のキーを指定します。
+   */
+  key: unknown;
+
+  /**
+   * 確定する世代の状態を指定します。
+   */
+  state: State;
+
+  /**
+   * 世代を照合するための共有 Promise を指定します。
+   */
+  innerPromise: Promise<any>;
+};
+
+/**
+ * 古い世代の確定かを判定します。
+ *
+ * 中断による世代交代や手動で確定済みに上書きしたときは `true` を返します。
+ */
+function isStaleGeneration(options: SettleOptions): boolean {
+  const { key, state, cacheMap, stateMap, innerPromise } = options;
+
+  return stateMap.get(key) !== state || cacheMap.get(key)?.value !== innerPromise;
+}
+
+/**
+ * 非同期成功を確定します。
+ *
+ * 古い世代の確定は無視します。
+ */
+function settleSuccess(options: SettleOptions & { value: unknown }): any {
+  const { key, value, cacheMap, stateMap } = options;
+  if (isStaleGeneration(options)) {
+    return value;
+  }
+
+  cacheMap.set(key, {
+    busy: false,
+    value,
+  });
+  stateMap.delete(key);
+
+  return value;
+}
+
+/**
+ * 非同期失敗を削除します。
+ *
+ * 古い世代の確定は無視します。
+ */
+function settleFailure(options: SettleOptions & { reason: unknown }): never {
+  const { key, reason, cacheMap, stateMap } = options;
+  if (isStaleGeneration(options)) {
+    throw reason;
+  }
+
+  cacheMap.delete(key);
+  stateMap.delete(key);
+
+  throw reason;
+}
+
+/**
+ * 確定待ちの Promise を共有するときの指定です。
+ */
+type TrackPendingOptions = {
+  /**
+   * 世代が変わったかを判定するための状態マップを指定します。
+   */
+  stateMap: Map<unknown, State>;
+
+  /**
+   * 共有 Promise の格納に使うキャッシュマップを指定します。
+   */
+  cacheMap: callAbortableFnOnce.CacheMap;
+
+  /**
+   * 処理対象のキーを指定します。
+   */
+  key: unknown;
+
+  /**
+   * 待機者の集合を持つ世代の状態を指定します。
+   */
+  state: State;
+
+  /**
+   * 共有する実行関数の戻り値を指定します。
+   */
+  ret: Thenable;
+};
+
+/**
+ * 確定待ちの Promise を共有し、確定内容でキャッシュマップを更新します。
+ *
+ * 解決後は解決値で確定し、拒否時は削除して次回再実行できるようにします。
+ */
+function trackPending(options: TrackPendingOptions): Promise<any> {
+  const { stateMap, cacheMap, key, state, ret } = options;
+  let innerPromise!: Promise<any>;
+  innerPromise = Promise.resolve(ret).then(
+    (value) =>
+      settleSuccess({
+        key,
+        state,
+        value,
+        cacheMap,
+        stateMap,
+        innerPromise,
+      }),
+    (reason) =>
+      settleFailure({
+        key,
+        state,
+        reason,
+        cacheMap,
+        stateMap,
+        innerPromise,
+      }),
+  );
+
+  cacheMap.set(key, {
+    busy: true,
+    value: innerPromise,
+  });
+
+  return innerPromise;
+}
+
+/**
+ * 実行関数を呼び出すときの指定です。
+ */
+type InvokeFnOptions<T> = {
+  /**
+   * 内部シグナルを取り出す世代の状態を指定します。
+   */
+  state: State;
+
+  /**
+   * 同期例外時の後処理に使う状態マップを指定します。
+   */
+  stateMap: Map<unknown, State>;
+
+  /**
+   * 処理対象のキーを指定します。
+   */
+  key: unknown;
+
+  /**
+   * 呼び出す実行関数を指定します。
+   */
+  fn: (signal: AbortSignal) => T;
+};
+
+/**
+ * 実行関数を呼び出します。
+ *
+ * 同期例外時は状態を残さずに投げ直します。
+ */
+function invokeFn<T>(options: InvokeFnOptions<T>): T {
+  const { fn, key, state, stateMap } = options;
+
+  try {
+    return fn(state.ctrl.signal);
+  } catch (ex) {
+    stateMap.delete(key);
+
+    throw ex;
+  }
+}
+
+/**
+ * 位置引数とオプション形式を同一形状にそろえます。
+ */
+// 3 関数で同形ですが Options 型が別物のため、あえて共通化せず複製しています。
+function normalizeArgs<T>(
+  args:
+    | [options: callAbortableFnOnce.Options<T>]
+    | [
+        cacheMap: callAbortableFnOnce.CacheMap,
+        key: unknown,
+        fn: (signal: AbortSignal) => T,
+        signal?: AbortSignal | undefined,
+      ],
+): callAbortableFnOnce.Options<T> {
+  if (args.length === 1) {
+    return args[0];
+  }
+
+  const [cacheMap, key, fn, signal] = args;
+
+  return { fn, key, signal, cacheMap };
 }
 
 /**
@@ -232,26 +561,18 @@ export function callAbortableFnOnce<T>(
         signal?: AbortSignal | undefined,
       ]
 ): callAbortableFnOnce.Return<T> {
-  let cacheMap: callAbortableFnOnce.CacheMap;
-  let key: unknown;
-  let fn: (signal: AbortSignal) => T;
-  let signal: AbortSignal | undefined;
-  if (args.length === 1) {
-    ({ cacheMap, key, fn, signal } = args[0]);
-  } else {
-    [cacheMap, key, fn, signal] = args;
-  }
+  const { fn, key, signal, cacheMap } = normalizeArgs(args);
 
-  // 中断済みなら、即座に投げます。
+  // 中断済みのときは実行せずに即座に投げます。
   throwIfAborted(signal);
 
   const stateMap = getOrCreateStateMap(cacheMap);
 
-  // 実行中のキャッシュがあれば、自らも待機者として参加します。
+  // 実行中のエントリーがあるときは、自らも待機者として参加します。
   if (cacheMap.has(key)) {
     const cache = cacheMap.get(key)!;
     if (!cache.busy) {
-      // 確定済みの読み取りを優先しつつ、残存した状態があれば削除します。
+      // 確定済みの読み取りを優先し、残っている状態は削除します。
       stateMap.delete(key);
 
       return cache.value;
@@ -262,92 +583,60 @@ export function callAbortableFnOnce<T>(
       throw new InconsistentCacheError();
     }
 
-    // シグナル未指定時はダミーシグナルを登録し、待機者の集合が空になるのを防ぎます。
-    state.sigs.add(signal ?? dummySignal);
+    addWaiter(state, signal);
 
-    return attachAbort(
-      cache.value,
-      state,
-      cacheMap,
+    return attachAbort({
       key,
+      state,
       signal,
+      promise: cache.value,
+      cacheMap,
       stateMap,
-    ) as callAbortableFnOnce.Return<T>;
+    }) as callAbortableFnOnce.Return<T>;
   }
 
-  // 同期実行中の再入を禁止するため、ガード内で実行します。
-  // 解決待ちの共有はガード解除後のため、許可されます。
+  // 同期的な再入を禁止するため、ガード内で実行します。
+  // 確定待ちの共有はガード解除後に行うため許可します。
   return withReentrancyGuard(cacheMap, key, () => {
-    // 新規実行用の状態を作成し、自らを待機者として登録します。
-    const state: State = {
-      ctrl: new AbortController(),
-      sigs: new Set<AbortSignal>(),
-    };
+    const state = createState();
     stateMap.set(key, state);
-    state.sigs.add(signal ?? dummySignal);
+    addWaiter(state, signal);
 
-    let ret: any;
-    try {
-      ret = fn(state.ctrl.signal);
-    } catch (ex) {
-      stateMap.delete(key);
-
-      throw ex;
-    }
+    const ret = invokeFn({
+      fn,
+      key,
+      state,
+      stateMap,
+    });
 
     if (isThenable(ret)) {
-      const innerPromise = Promise.resolve(ret).then(
-        (val) => {
-          // 中断などで世代が変わっていたら、古い確定を無視します。
-          // 手動による上書きも世代交代とみなします。
-          if (stateMap.get(key) !== state || cacheMap.get(key)?.value !== innerPromise) {
-            return val;
-          }
-
-          cacheMap.set(key, {
-            busy: false,
-            value: val,
-          });
-          stateMap.delete(key);
-
-          return val;
-        },
-        (ex) => {
-          // 中断などで世代が変わっていたら、古い確定を無視します。
-          // 手動で設定された確定値を消さないため、変更せずに投げます。
-          if (stateMap.get(key) !== state || cacheMap.get(key)?.value !== innerPromise) {
-            throw ex;
-          }
-
-          cacheMap.delete(key);
-          stateMap.delete(key);
-
-          throw ex;
-        },
-      );
-
-      cacheMap.set(key, {
-        busy: true,
-        value: innerPromise,
-      });
-
-      return attachAbort(
-        innerPromise,
+      const promise = trackPending({
+        key,
+        ret,
         state,
         cacheMap,
-        key,
-        signal,
         stateMap,
-      ) as callAbortableFnOnce.Return<T>;
+      });
+
+      return attachAbort({
+        key,
+        state,
+        signal,
+        promise,
+        cacheMap,
+        stateMap,
+      }) as callAbortableFnOnce.Return<T>;
     }
 
-    // fn 実行中に待機者が同期中断していたら、結果を確定せず中断理由を投げます。
-    // 非同期経路の即時拒否と整合させるためです。
-    if (signal !== undefined && signal.aborted) {
-      state.ctrl.abort(getAbortReason(signal));
+    // fn の実行中に待機者が同期中断していたときは結果を確定しません。
+    // 中断理由を投げます。
+    // 型には含めないが、JS 相互運用で null が渡ったときは未指定と同様に扱います。
+    if (signal?.aborted) {
+      const reason = getAbortReason(signal);
+      state.ctrl.abort(reason);
       stateMap.delete(key);
 
-      throw getAbortReason(signal);
+      throw reason;
     }
 
     cacheMap.set(key, {
@@ -356,6 +645,6 @@ export function callAbortableFnOnce<T>(
     });
     stateMap.delete(key);
 
-    return ret;
+    return ret as callAbortableFnOnce.Return<T>;
   });
 }

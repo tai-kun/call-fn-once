@@ -38,6 +38,51 @@ export namespace callAsyncableFnOnce {
 }
 
 /**
+ * 位置引数とオプション形式を同一形状にそろえます。
+ */
+// 3 関数で同形ですが Options 型が別物のため、あえて共通化せず複製しています。
+function normalizeArgs<T>(
+  args:
+    | [options: callAsyncableFnOnce.Options<T>]
+    | [cacheMap: callAsyncableFnOnce.CacheMap, key: unknown, fn: () => T],
+): callAsyncableFnOnce.Options<T> {
+  if (args.length === 1) {
+    return args[0];
+  }
+
+  const [cacheMap, key, fn] = args;
+
+  return { fn, key, cacheMap };
+}
+
+/**
+ * 確定待ちの Promise を共有し、確定内容でキャッシュマップを更新します。
+ *
+ * 解決後は解決値で確定し、拒否時は削除して次回再実行できるようにします。
+ */
+function sharePending(
+  cacheMap: callAsyncableFnOnce.CacheMap,
+  key: unknown,
+  ret: Thenable,
+): Promise<any> {
+  const innerPromise = Promise.resolve(ret).then(
+    (val) => {
+      cacheMap.set(key, val);
+
+      return val;
+    },
+    (ex) => {
+      cacheMap.delete(key);
+
+      throw ex;
+    },
+  );
+  cacheMap.set(key, innerPromise);
+
+  return innerPromise;
+}
+
+/**
  * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-asyncable-fn-once)
  */
 export function callAsyncableFnOnce<T>(
@@ -58,47 +103,24 @@ export function callAsyncableFnOnce<T>(
     | [options: callAsyncableFnOnce.Options<T>]
     | [cacheMap: callAsyncableFnOnce.CacheMap, key: unknown, fn: () => T]
 ): callAsyncableFnOnce.Return<T> {
-  let cacheMap: callAsyncableFnOnce.CacheMap;
-  let key: unknown;
-  let fn: () => T;
-  if (args.length === 1) {
-    ({ cacheMap, key, fn } = args[0]);
-  } else {
-    [cacheMap, key, fn] = args;
-  }
+  const { fn, key, cacheMap } = normalizeArgs(args);
 
-  // `has()` で存在を確認するので、`undefined` のキャッシュも正しく扱えます。
+  // `has()` で存在を確認するため、`undefined` の値も正しく扱えます。
   if (cacheMap.has(key)) {
     return cacheMap.get(key);
   }
 
-  // 同期実行中の再入を禁止するため、ガード内で実行します。
-  // 解決待ちの共有はガード解除後のため、許可されます。
+  // 同期的な再入を禁止するため、ガード内で実行します。
+  // 確定待ちの共有はガード解除後に行うため許可します。
   return withReentrancyGuard(cacheMap, key, () => {
     const ret = fn();
 
-    if (!isThenable(ret)) {
-      cacheMap.set(key, ret);
-
-      return ret as callAsyncableFnOnce.Return<T>;
+    if (isThenable(ret)) {
+      return sharePending(cacheMap, key, ret) as callAsyncableFnOnce.Return<T>;
     }
 
-    // 解決待ちの間は Promise 自体を共有し、解決後は解決値で置き換えます。
-    // 拒否時はキャッシュを破棄するので、次回は再実行します。
-    const innerPromise = Promise.resolve(ret).then(
-      (val) => {
-        cacheMap.set(key, val);
+    cacheMap.set(key, ret);
 
-        return val;
-      },
-      (ex) => {
-        cacheMap.delete(key);
-
-        throw ex;
-      },
-    );
-    cacheMap.set(key, innerPromise);
-
-    return innerPromise as callAsyncableFnOnce.Return<T>;
+    return ret as callAsyncableFnOnce.Return<T>;
   });
 }

@@ -36,6 +36,24 @@ export namespace callFnOnce {
 }
 
 /**
+ * 位置引数とオプション形式を同一形状にそろえます。
+ */
+// 3 関数で同形ですが Options 型が別物のため、あえて共通化せず複製しています。
+function normalizeArgs<T>(
+  args:
+    | [options: callFnOnce.Options<T>]
+    | [cacheMap: callFnOnce.CacheMap, key: unknown, fn: () => T],
+): callFnOnce.Options<T> {
+  if (args.length === 1) {
+    return args[0];
+  }
+
+  const [cacheMap, key, fn] = args;
+
+  return { fn, key, cacheMap };
+}
+
+/**
  * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-fn-once)
  */
 export function callFnOnce<T>(
@@ -54,21 +72,14 @@ export function callFnOnce<T>(
     | [options: callFnOnce.Options<T>]
     | [cacheMap: callFnOnce.CacheMap, key: unknown, fn: () => T]
 ): callFnOnce.Return<T> {
-  let cacheMap: callFnOnce.CacheMap;
-  let key: unknown;
-  let fn: () => T;
-  if (args.length === 1) {
-    ({ cacheMap, key, fn } = args[0]);
-  } else {
-    [cacheMap, key, fn] = args;
-  }
+  const { fn, key, cacheMap } = normalizeArgs(args);
 
-  // `has()` で存在を確認するので、`undefined` のキャッシュも正しく扱えます。
+  // `has()` で存在を確認するため、`undefined` の値も正しく扱えます。
   if (cacheMap.has(key)) {
     return cacheMap.get(key);
   }
 
-  // 同期実行中の再入を禁止するため、ガード内で実行します。
+  // 同期的な再入を禁止するため、ガード内で実行します。
   return withReentrancyGuard(cacheMap, key, () => {
     const ret = fn();
     cacheMap.set(key, ret);
