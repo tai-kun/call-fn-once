@@ -153,8 +153,17 @@ function attachAbort(
   }
 
   return new Promise((resolve, reject) => {
-    // 登録時点で中断済みなら、即座に拒否します。
+    // 登録時点で中断済みなら、待機集合から外して即座に拒否します。
+    // fn 実行中に同期中断した場合が該当し、最後の 1 人なら内部処理を中断して登録を削除します。
     if (signal.aborted) {
+      state.sigs.delete(signal);
+
+      if (state.sigs.size === 0 && stateMap.get(key) === state) {
+        state.ctrl.abort(getAbortReason(signal));
+        cacheMap.delete(key);
+        stateMap.delete(key);
+      }
+
       return reject(getAbortReason(signal));
     }
 
@@ -322,6 +331,15 @@ export function callAbortableFnOnce<T>(
         signal,
         stateMap,
       ) as callAbortableFnOnce.Return<T>;
+    }
+
+    // fn 実行中に待機者が同期中断していたら、結果を確定せず中断理由を投げます。
+    // 非同期経路の即時拒否と整合させるためです。
+    if (signal !== undefined && signal.aborted) {
+      state.ctrl.abort(getAbortReason(signal));
+      stateMap.delete(key);
+
+      throw getAbortReason(signal);
     }
 
     cacheMap.set(key, {

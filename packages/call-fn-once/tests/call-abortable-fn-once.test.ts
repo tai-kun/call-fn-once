@@ -318,6 +318,101 @@ describe("callAbortableFnOnce", () => {
       expect(callCount).toBe(1);
       expect(innerSignal?.aborted).toBe(false);
     });
+
+    test("実行関数内での同期中断は内部処理を中断して登録を削除する", async ({ expect }) => {
+      // 準備
+      const cacheMap: callAbortableFnOnce.CacheMap = new Map();
+      const controller = new AbortController();
+      const reason = new Error("sync-abort");
+      let innerSignal: AbortSignal | undefined;
+      const pending = Promise.resolve(
+        callAbortableFnOnce(
+          cacheMap,
+          "key",
+          (signal) => {
+            innerSignal = signal;
+            controller.abort(reason);
+
+            return new Promise<string>(() => {});
+          },
+          controller.signal,
+        ),
+      );
+
+      // 実行
+      await expect(pending).rejects.toBe(reason);
+
+      // 検証
+      expect(innerSignal?.aborted).toBe(true);
+      expect(cacheMap.has("key")).toBe(false);
+    });
+
+    test("同期中断した実行の遅延解決値はキャッシュしない", async ({ expect }) => {
+      // 準備
+      const cacheMap: callAbortableFnOnce.CacheMap = new Map();
+      const controller = new AbortController();
+      const reason = new Error("sync-abort-resolved");
+      let callCount = 0;
+      const pending = Promise.resolve(
+        callAbortableFnOnce(
+          cacheMap,
+          "key",
+          () => {
+            callCount += 1;
+            controller.abort(reason);
+
+            return Promise.resolve("stale");
+          },
+          controller.signal,
+        ),
+      );
+
+      // 実行
+      await expect(pending).rejects.toBe(reason);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      const retried = callAbortableFnOnce(cacheMap, "key", () => {
+        callCount += 1;
+
+        return "fresh";
+      });
+
+      // 検証
+      expect(retried).toBe("fresh");
+      expect(callCount).toBe(2);
+    });
+
+    test("実行関数内での同期中断は同期結果を確定しない", ({ expect }) => {
+      // 準備
+      const cacheMap: callAbortableFnOnce.CacheMap = new Map();
+      const controller = new AbortController();
+      const reason = new Error("sync-abort-sync");
+      let callCount = 0;
+
+      // 実行
+      const caught = captureThrow(() => {
+        callAbortableFnOnce(
+          cacheMap,
+          "key",
+          () => {
+            callCount += 1;
+            controller.abort(reason);
+
+            return "stale";
+          },
+          controller.signal,
+        );
+      });
+      const retried = callAbortableFnOnce(cacheMap, "key", () => {
+        callCount += 1;
+
+        return "fresh";
+      });
+
+      // 検証
+      expect(caught).toBe(reason);
+      expect(retried).toBe("fresh");
+      expect(callCount).toBe(2);
+    });
   });
 
   describe("確定後のキャッシュ", () => {
