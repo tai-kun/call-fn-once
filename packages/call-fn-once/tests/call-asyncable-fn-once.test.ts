@@ -1,252 +1,251 @@
 import { describe, expectTypeOf, test } from "vitest";
 
 import { callAsyncableFnOnce } from "../src/call-asyncable-fn-once.js";
-
-/**
- * 手動で解決・拒否できる遅延Promiseです。
- * 解決前の並行呼び出しが単一実行にまとめられることを検証するために使用します。
- */
-function createDeferred<T>(): {
-  promise: Promise<T>;
-  resolve: (value: T) => void;
-  reject: (reason?: unknown) => void;
-} {
-  let resolve = (_value: T): void => {};
-  let reject = (_reason?: unknown): void => {};
-  const promise = new Promise<T>((res, rej) => {
-    resolve = res;
-    reject = rej;
-  });
-
-  return { promise, resolve, reject };
-}
+import { captureThrow, createDeferred } from "./_helpers.js";
 
 describe("callAsyncableFnOnce", () => {
-  test("同期値をキャッシュする", ({ expect }) => {
-    // 準備
-    const cacheMap: callAsyncableFnOnce.CacheMap = new Map();
-    let callCount = 0;
-    callAsyncableFnOnce(cacheMap, "key", () => {
-      callCount += 1;
-
-      return "first";
-    });
-
-    // 実行
-    const result = callAsyncableFnOnce(cacheMap, "key", () => {
-      callCount += 1;
-
-      return "second";
-    });
-
-    // 検証
-    expect(result).toBe("first");
-    expect(callCount).toBe(1);
-  });
-
-  test("同期のundefinedをキャッシュする", ({ expect }) => {
-    // 準備
-    const cacheMap: callAsyncableFnOnce.CacheMap = new Map();
-    let callCount = 0;
-    callAsyncableFnOnce(cacheMap, "key", () => {
-      callCount += 1;
-
-      return undefined;
-    });
-
-    // 実行
-    const result = callAsyncableFnOnce(cacheMap, "key", () => {
-      callCount += 1;
-
-      return "second";
-    });
-
-    // 検証
-    expect(result).toBe(undefined);
-    expect(callCount).toBe(1);
-  });
-
-  test("同期例外はキャッシュせず次回再実行する", ({ expect }) => {
-    // 準備
-    const cacheMap: callAsyncableFnOnce.CacheMap = new Map();
-    const failure = new Error("boom");
-    let callCount = 0;
-
-    // 実行
-    let caught: unknown;
-    try {
+  describe("同期実行", () => {
+    test("同期値をキャッシュする", ({ expect }) => {
+      // 準備
+      const cacheMap: callAsyncableFnOnce.CacheMap = new Map();
+      let callCount = 0;
       callAsyncableFnOnce(cacheMap, "key", () => {
         callCount += 1;
-        throw failure;
+
+        return "first";
       });
-    } catch (ex) {
-      caught = ex;
-    }
-    const retried = callAsyncableFnOnce(cacheMap, "key", () => {
-      callCount += 1;
 
-      return "recovered";
+      // 実行
+      const result = callAsyncableFnOnce(cacheMap, "key", () => {
+        callCount += 1;
+
+        return "second";
+      });
+
+      // 検証
+      expect(result).toBe("first");
+      expect(callCount).toBe(1);
     });
 
-    // 検証
-    expect(caught).toBe(failure);
-    expect(retried).toBe("recovered");
-    expect(callCount).toBe(2);
+    test("同期の undefined をキャッシュする", ({ expect }) => {
+      // 準備
+      const cacheMap: callAsyncableFnOnce.CacheMap = new Map();
+      let callCount = 0;
+      callAsyncableFnOnce(cacheMap, "key", () => {
+        callCount += 1;
+
+        return undefined;
+      });
+
+      // 実行
+      const result = callAsyncableFnOnce(cacheMap, "key", () => {
+        callCount += 1;
+
+        return "second";
+      });
+
+      // 検証
+      expect(result).toBe(undefined);
+      expect(callCount).toBe(1);
+    });
+
+    test("同期例外はキャッシュせず、次回再実行する", ({ expect }) => {
+      // 準備
+      const cacheMap: callAsyncableFnOnce.CacheMap = new Map();
+      const failure = new Error("boom");
+      let callCount = 0;
+
+      // 実行
+      const caught = captureThrow(() => {
+        callAsyncableFnOnce(cacheMap, "key", () => {
+          callCount += 1;
+          throw failure;
+        });
+      });
+      const retried = callAsyncableFnOnce(cacheMap, "key", () => {
+        callCount += 1;
+
+        return "recovered";
+      });
+
+      // 検証
+      expect(caught).toBe(failure);
+      expect(retried).toBe("recovered");
+      expect(callCount).toBe(2);
+    });
   });
 
-  test("非同期の解決値をキャッシュし解決後は値を直接返す", async ({ expect }) => {
-    // 準備
-    const cacheMap: callAsyncableFnOnce.CacheMap = new Map();
-    let callCount = 0;
-    const pending = callAsyncableFnOnce(cacheMap, "key", () => {
-      callCount += 1;
+  describe("非同期実行", () => {
+    test("非同期の解決値をキャッシュし、解決後は値を直接返す", async ({ expect }) => {
+      // 準備
+      const cacheMap: callAsyncableFnOnce.CacheMap = new Map();
+      let callCount = 0;
+      const pending = Promise.resolve(
+        callAsyncableFnOnce(cacheMap, "key", () => {
+          callCount += 1;
 
-      return Promise.resolve("ok");
+          return Promise.resolve("ok");
+        }),
+      );
+
+      // 実行
+      await expect(pending).resolves.toBe("ok");
+      const cached = callAsyncableFnOnce(cacheMap, "key", () => {
+        callCount += 1;
+
+        return Promise.resolve("unexpected");
+      });
+
+      // 検証
+      expect(cached).toBe("ok");
+      expect(callCount).toBe(1);
     });
 
-    // 実行
-    await expect(pending).resolves.toBe("ok");
-    const cached = callAsyncableFnOnce(cacheMap, "key", () => {
-      callCount += 1;
+    test("解決前の並行呼び出しを単一実行にまとめる", async ({ expect }) => {
+      // 準備
+      const cacheMap: callAsyncableFnOnce.CacheMap = new Map();
+      const deferred = createDeferred<string>();
+      let callCount = 0;
 
-      return Promise.resolve("unexpected");
+      // 実行
+      const first = Promise.resolve(
+        callAsyncableFnOnce(cacheMap, "key", () => {
+          callCount += 1;
+
+          return deferred.promise;
+        }),
+      );
+      const second = Promise.resolve(
+        callAsyncableFnOnce(cacheMap, "key", () => {
+          callCount += 1;
+
+          return Promise.resolve("unexpected");
+        }),
+      );
+      deferred.resolve("ok");
+
+      // 検証
+      await expect(first).resolves.toBe("ok");
+      await expect(second).resolves.toBe("ok");
+      expect(callCount).toBe(1);
     });
 
-    // 検証
-    expect(cached).toBe("ok");
-    expect(callCount).toBe(1);
-  });
+    test("非同期の拒否はキャッシュせず、次回再実行する", async ({ expect }) => {
+      // 準備
+      const cacheMap: callAsyncableFnOnce.CacheMap = new Map();
+      const failure = new Error("fail");
+      let callCount = 0;
 
-  test("解決前の並行呼び出しを単一実行にまとめる", async ({ expect }) => {
-    // 準備
-    const cacheMap: callAsyncableFnOnce.CacheMap = new Map();
-    const deferred = createDeferred<string>();
-    let callCount = 0;
+      // 実行
+      const rejected = Promise.resolve(
+        callAsyncableFnOnce(cacheMap, "key", () => {
+          callCount += 1;
 
-    // 実行
-    const first = callAsyncableFnOnce(cacheMap, "key", () => {
-      callCount += 1;
+          return Promise.reject(failure);
+        }),
+      );
+      await expect(rejected).rejects.toBe(failure);
+      const retried = callAsyncableFnOnce(cacheMap, "key", () => {
+        callCount += 1;
 
-      return deferred.promise;
-    });
-    const second = callAsyncableFnOnce(cacheMap, "key", () => {
-      callCount += 1;
+        return "recovered";
+      });
 
-      return Promise.resolve("unexpected");
-    });
-    deferred.resolve("ok");
-
-    // 検証
-    await expect(first).resolves.toBe("ok");
-    await expect(second).resolves.toBe("ok");
-    expect(callCount).toBe(1);
-  });
-
-  test("非同期の拒否はキャッシュせず次回再実行する", async ({ expect }) => {
-    // 準備
-    const cacheMap: callAsyncableFnOnce.CacheMap = new Map();
-    const failure = new Error("fail");
-    let callCount = 0;
-
-    // 実行
-    const rejected = callAsyncableFnOnce(cacheMap, "key", () => {
-      callCount += 1;
-
-      return Promise.reject(failure);
-    });
-    await expect(rejected).rejects.toBe(failure);
-    const retried = callAsyncableFnOnce(cacheMap, "key", () => {
-      callCount += 1;
-
-      return "recovered";
+      // 検証
+      expect(retried).toBe("recovered");
+      expect(callCount).toBe(2);
     });
 
-    // 検証
-    expect(retried).toBe("recovered");
-    expect(callCount).toBe(2);
-  });
+    test("並行呼び出しの拒否は両方に伝わる", async ({ expect }) => {
+      // 準備
+      const cacheMap: callAsyncableFnOnce.CacheMap = new Map();
+      const failure = new Error("fail");
+      let callCount = 0;
 
-  test("並行呼び出しの拒否は両方に伝わる", async ({ expect }) => {
-    // 準備
-    const cacheMap: callAsyncableFnOnce.CacheMap = new Map();
-    const failure = new Error("fail");
-    let callCount = 0;
+      // 実行
+      const first = Promise.resolve(
+        callAsyncableFnOnce(cacheMap, "key", () => {
+          callCount += 1;
 
-    // 実行
-    const first = callAsyncableFnOnce(cacheMap, "key", () => {
-      callCount += 1;
+          return Promise.reject(failure);
+        }),
+      );
+      const second = Promise.resolve(
+        callAsyncableFnOnce(cacheMap, "key", () => {
+          callCount += 1;
 
-      return Promise.reject(failure);
-    });
-    const second = callAsyncableFnOnce(cacheMap, "key", () => {
-      callCount += 1;
+          return Promise.resolve("unexpected");
+        }),
+      );
 
-      return Promise.resolve("unexpected");
-    });
-
-    // 検証
-    await expect(first).rejects.toBe(failure);
-    await expect(second).rejects.toBe(failure);
-    expect(callCount).toBe(1);
-  });
-
-  test("Thenableを非同期として扱う", async ({ expect }) => {
-    // 準備
-    const cacheMap: callAsyncableFnOnce.CacheMap = new Map();
-    // ダックタイピングでThenable判定することを検証するため、意図的にthenを持たせます。
-    // oxlint-disable
-    const thenable = {
-      then(resolve: (value: number) => void): void {
-        resolve(42);
-      },
-    };
-    // oxlint-enable
-
-    // 実行
-    const pending = callAsyncableFnOnce(cacheMap, "key", () => thenable);
-    await expect(Promise.resolve(pending)).resolves.toBe(42);
-    const cached = callAsyncableFnOnce(cacheMap, "key", () => {
-      throw new Error("再実行された");
+      // 検証
+      await expect(first).rejects.toBe(failure);
+      await expect(second).rejects.toBe(failure);
+      expect(callCount).toBe(1);
     });
 
-    // 検証
-    expect(cached).toBe(42);
-  });
+    test("Thenable を非同期として扱う", async ({ expect }) => {
+      // 準備
+      const cacheMap: callAsyncableFnOnce.CacheMap = new Map();
+      // ダックタイピングで Thenable 判定することを検証するため、意図的に `then` を持たせています。
+      // oxlint-disable
+      const thenable = {
+        then(resolve: (value: number) => void): void {
+          resolve(42);
+        },
+      };
+      // oxlint-enable
 
-  test("解決値がundefinedでも確定値をキャッシュする", async ({ expect }) => {
-    // 準備
-    const cacheMap: callAsyncableFnOnce.CacheMap = new Map();
-    let callCount = 0;
-    const pending = callAsyncableFnOnce(cacheMap, "key", () => {
-      callCount += 1;
+      // 実行
+      const pending = Promise.resolve(callAsyncableFnOnce(cacheMap, "key", () => thenable));
+      await expect(pending).resolves.toBe(42);
+      const cached = callAsyncableFnOnce(cacheMap, "key", () => {
+        throw new Error("再実行された");
+      });
 
-      return Promise.resolve(undefined);
+      // 検証
+      expect(cached).toBe(42);
     });
 
-    // 実行
-    await expect(pending).resolves.toBe(undefined);
-    const cached = callAsyncableFnOnce(cacheMap, "key", () => {
-      callCount += 1;
+    test("解決値が undefined でも確定値をキャッシュする", async ({ expect }) => {
+      // 準備
+      const cacheMap: callAsyncableFnOnce.CacheMap = new Map();
+      let callCount = 0;
+      const pending = Promise.resolve(
+        callAsyncableFnOnce(cacheMap, "key", () => {
+          callCount += 1;
 
-      return Promise.resolve("unexpected");
+          return Promise.resolve(undefined);
+        }),
+      );
+
+      // 実行
+      await expect(pending).resolves.toBe(undefined);
+      const cached = callAsyncableFnOnce(cacheMap, "key", () => {
+        callCount += 1;
+
+        return Promise.resolve("unexpected");
+      });
+
+      // 検証
+      expect(cached).toBe(undefined);
+      expect(callCount).toBe(1);
     });
 
-    // 検証
-    expect(cached).toBe(undefined);
-    expect(callCount).toBe(1);
-  });
+    test("キーごとに独立してキャッシュする", async ({ expect }) => {
+      // 準備
+      const cacheMap: callAsyncableFnOnce.CacheMap = new Map();
 
-  test("キーごとに独立してキャッシュする", async ({ expect }) => {
-    // 準備
-    const cacheMap: callAsyncableFnOnce.CacheMap = new Map();
+      // 実行
+      const first = Promise.resolve(callAsyncableFnOnce(cacheMap, "a", () => Promise.resolve("A")));
+      const second = Promise.resolve(
+        callAsyncableFnOnce(cacheMap, "b", () => Promise.resolve("B")),
+      );
 
-    // 実行
-    const first = callAsyncableFnOnce(cacheMap, "a", () => Promise.resolve("A"));
-    const second = callAsyncableFnOnce(cacheMap, "b", () => Promise.resolve("B"));
-
-    // 検証
-    await expect(first).resolves.toBe("A");
-    await expect(second).resolves.toBe("B");
+      // 検証
+      await expect(first).resolves.toBe("A");
+      await expect(second).resolves.toBe("B");
+    });
   });
 
   test("返り値の型が入力に応じて決まる", () => {

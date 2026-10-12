@@ -1,16 +1,16 @@
 /**
- * `callFnOnce` 関数に関連する型定義を管理する名前空間です。
+ * `callFnOnce` 関数に関する型定義をまとめた名前空間です。
  */
 export namespace callFnOnce {
   /**
-   * 実行結果をキャッシュするための Map オブジェクトの型定義です。
+   * 実行結果を保持する Map の型定義です。
    *
-   * キーには任意の値を指定でき、値には計算結果が格納されます。
+   * 任意の値をキー、計算結果を値として保持します。
    */
   export type CacheMap = Map<unknown, any>;
 
   /**
-   * 関数の返り値の型を表すジェネリック型です。
+   * 関数の返り値の型です。
    *
    * @template T 返り値の型です。
    */
@@ -18,30 +18,28 @@ export namespace callFnOnce {
 }
 
 /**
- * 指定されたキーに基づき、コールバック関数を一度だけ実行して結果をキャッシュします。
+ * 指定されたキーごとに、コールバック関数を一度だけ実行して結果をキャッシュします。
  *
- * 二回目以降の呼び出しでは、キャッシュされた結果を直接返します。
+ * 2 回目以降の呼び出しでは、再実行せずにキャッシュされた結果を返します。
  *
  * @template T コールバック関数が返す値の型です。
- * @param cacheMap 実行結果を保持するための Map オブジェクトです。
- * @param key キャッシュを識別するためのユニークなキーです。
- * @param fn 実行対象となるコールバック関数です。
- * @returns キャッシュされている値、または新規に実行された関数の結果を返します。
+ * @param cacheMap 実行結果を保持する Map オブジェクトです。
+ * @param key キャッシュを識別する一意のキーです。
+ * @param fn 実行するコールバック関数です。
+ * @returns キャッシュ済みの値、または今回の実行結果を返します。
  */
 export function callFnOnce<T>(
   cacheMap: callFnOnce.CacheMap,
   key: unknown,
   fn: () => T,
 ): callFnOnce.Return<T> {
-  // Map 内に指定されたキーが存在するかどうかを確認します。
-  // has メソッドを使用することで、値が undefined の場合でも正しく存在チェックを行います。
-  if (!cacheMap.has(key)) {
-    // キーが存在しない場合は、提供されたコールバック関数を実行します。
-    // 実行して得られた結果を、指定されたキーに関連付けてキャッシュに保存します。
-    cacheMap.set(key, fn());
+  // `has()` で存在を確認するので、`undefined` のキャッシュも正しく扱えます。
+  if (cacheMap.has(key)) {
+    return cacheMap.get(key);
   }
 
-  // キャッシュから値を取得して返します。
-  // 上記の条件分岐により、この時点では必ずキーに対応する値が存在することが保証されます。
-  return cacheMap.get(key);
+  const ret = fn();
+  cacheMap.set(key, ret);
+
+  return ret;
 }

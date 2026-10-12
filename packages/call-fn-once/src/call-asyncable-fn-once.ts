@@ -1,80 +1,70 @@
 import { type Thenable, type MaybePromise, isThenable } from "maypromise";
 
 /**
- * `callAsyncableFnOnce` 関数に関連する型定義を管理する名前空間です。
+ * `callAsyncableFnOnce` 関数に関する型定義をまとめた名前空間です。
  */
 export namespace callAsyncableFnOnce {
   /**
-   * キャッシュされた実行結果を保持するための Map 型の定義です。
+   * 実行結果を保持する Map の型定義です。
    *
-   * キーには任意の値を指定でき、値には計算結果が格納されます。
+   * 任意の値をキー、計算結果を値として保持します。
    */
   export type CacheMap = Map<unknown, MaybePromise<any>>;
 
   /**
    * {@link callAsyncableFnOnce} が返す値の型を定義します。
    *
-   * 入力が `then` メソッドを持つ（Promise ライクな）型である場合、解決後の値を {@link MaybePromise} でラップした型を返します。
+   * `T` が `then` メソッドを持つ型（Promise ライク）の場合、解決値を {@link MaybePromise} でラップした型を返します。
    *
-   * @template T 判定対象となる元の型です。
+   * @template T コールバック関数の返り値の型です。
    */
   export type Return<T> = T extends Thenable ? MaybePromise<Awaited<T>> : T;
 }
 
 /**
- * 指定されたキーに基づき、コールバック関数を一度だけ実行して結果をキャッシュします。
+ * 指定されたキーごとに、コールバック関数を一度だけ実行して結果をキャッシュします。
  *
- * 同期および非同期の両方の返り値に対応しており、非同期の場合は Promise オブジェクトがキャッシュされ、解決され次第その値をキャッシュします。
+ * 同期値と非同期値のどちらも受け付けます。非同期の場合は解決待ちの Promise を共有し、解決後はその値を返します。
  *
  * @template T コールバック関数が返す値の型です。
- * @param cacheMap 実行結果を保持するための Map オブジェクトです。
- * @param key キャッシュを識別するためのユニークなキーです。
- * @param fn 実行対象となるコールバック関数です。
- * @returns キャッシュされている値、または新規に実行された関数の返り値を返します。
+ * @param cacheMap 実行結果を保持する Map オブジェクトです。
+ * @param key キャッシュを識別する一意のキーです。
+ * @param fn 実行するコールバック関数です。
+ * @returns キャッシュ済みの値、または今回の実行結果を返します。
  */
 export function callAsyncableFnOnce<T>(
   cacheMap: callAsyncableFnOnce.CacheMap,
   key: unknown,
   fn: () => T,
 ): callAsyncableFnOnce.Return<T> {
-  // Map 内に指定されたキーが存在するかどうかを確認します。
-  // has メソッドを使用することで、値が undefined の場合でも正しく存在チェックを行います。
+  // `has()` で存在を確認するので、`undefined` のキャッシュも正しく扱えます。
   if (cacheMap.has(key)) {
-    // すでに指定されたキーでキャッシュが存在する場合は、その値を即座に返します。
     return cacheMap.get(key);
   }
 
-  // コールバック関数を実行して結果を取得します。
   const ret = fn();
 
-  if (isThenable(ret)) {
-    // 返り値が Promise のようなオブジェクトの場合、Promise で囲います。
-    const innerPromise = Promise.resolve(ret).then(
-      (val) => {
-        // 解決された値をキャッシュに保存します。
-        // これにより、後続の呼び出しでは Promise ではなく解決後の値が返るようになります。
-        cacheMap.set(key, val);
-
-        return val;
-      },
-      (ex) => {
-        // 非同期処理中にエラーが発生した場合は、不完全なキャッシュ（Promise）を削除します。
-        cacheMap.delete(key);
-
-        // キャッチしたエラーをそのまま呼び出し元へ投げます。
-        throw ex;
-      },
-    );
-
-    // 解決を待っている間は、この Promise 自体をキャッシュに登録しておきます。
-    // これにより、解決前に再度呼び出された際も同じ Promise を共有できます。
-    cacheMap.set(key, innerPromise);
-  } else {
-    // 返り値が同期的な値である場合は、そのままキャッシュに保存します。
+  if (!isThenable(ret)) {
     cacheMap.set(key, ret);
+
+    return ret as callAsyncableFnOnce.Return<T>;
   }
 
-  // キャッシュから値を取得して返します。
-  // 上記の処理により、この時点では必ずキーに対応する値が存在することが保証されます。
-  return cacheMap.get(key);
+  // 解決待ちの間は Promise 自体を共有し、解決後は解決値で置き換えます。
+  // 拒否時はキャッシュを破棄するので、次回は再実行します。
+  const innerPromise = Promise.resolve(ret).then(
+    (val) => {
+      cacheMap.set(key, val);
+
+      return val;
+    },
+    (ex) => {
+      cacheMap.delete(key);
+
+      throw ex;
+    },
+  );
+  cacheMap.set(key, innerPromise);
+
+  return innerPromise as callAsyncableFnOnce.Return<T>;
 }
