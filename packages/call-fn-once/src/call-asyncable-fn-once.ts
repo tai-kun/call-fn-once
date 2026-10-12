@@ -19,6 +19,26 @@ export namespace callAsyncableFnOnce {
    * @template T コールバック関数の返り値の型です。
    */
   export type Return<T> = T extends Thenable ? MaybePromise<Awaited<T>> : T;
+
+  /**
+   * オブジェクト形式で渡す引数の型定義です。
+   */
+  export type Options<T> = {
+    /**
+     * 実行結果を保持する Map オブジェクトです。
+     */
+    cacheMap: CacheMap;
+
+    /**
+     * キャッシュを識別する一意のキーです。
+     */
+    key: unknown;
+
+    /**
+     * 実行するコールバック関数です。
+     */
+    fn: () => T;
+  };
 }
 
 /**
@@ -36,7 +56,35 @@ export function callAsyncableFnOnce<T>(
   cacheMap: callAsyncableFnOnce.CacheMap,
   key: unknown,
   fn: () => T,
+): callAsyncableFnOnce.Return<T>;
+
+/**
+ * 指定されたキーごとに、コールバック関数を一度だけ実行して結果をキャッシュします。
+ *
+ * 引数をオブジェクト形式で渡す場合のオーバーロードです。
+ *
+ * @template T コールバック関数が返す値の型です。
+ * @param options 実行に必要な引数をまとめたオブジェクトです。
+ * @returns キャッシュ済みの値、または今回の実行結果を返します。
+ */
+export function callAsyncableFnOnce<T>(
+  options: callAsyncableFnOnce.Options<T>,
+): callAsyncableFnOnce.Return<T>;
+
+export function callAsyncableFnOnce<T>(
+  ...args:
+    | [options: callAsyncableFnOnce.Options<T>]
+    | [cacheMap: callAsyncableFnOnce.CacheMap, key: unknown, fn: () => T]
 ): callAsyncableFnOnce.Return<T> {
+  let cacheMap: callAsyncableFnOnce.CacheMap;
+  let key: unknown;
+  let fn: () => T;
+  if (args.length === 1) {
+    ({ cacheMap, key, fn } = args[0]);
+  } else {
+    [cacheMap, key, fn] = args;
+  }
+
   // `has()` で存在を確認するので、`undefined` のキャッシュも正しく扱えます。
   if (cacheMap.has(key)) {
     return cacheMap.get(key);

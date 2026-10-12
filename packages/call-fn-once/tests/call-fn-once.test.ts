@@ -134,6 +134,63 @@ describe("callFnOnce", () => {
     expect(second).toBe("B");
   });
 
+  test("オプション形式でも実行結果を返してキャッシュする", ({ expect }) => {
+    // 準備
+    const cacheMap: callFnOnce.CacheMap = new Map();
+    let callCount = 0;
+
+    // 実行
+    const first = callFnOnce({
+      cacheMap,
+      key: "key",
+      fn: () => {
+        callCount += 1;
+
+        return "first";
+      },
+    });
+    const second = callFnOnce({
+      cacheMap,
+      key: "key",
+      fn: () => {
+        callCount += 1;
+
+        return "second";
+      },
+    });
+
+    // 検証
+    expect(first).toBe("first");
+    expect(second).toBe("first");
+    expect(callCount).toBe(1);
+  });
+
+  test("位置引数とオプション形式でキャッシュを共有する", ({ expect }) => {
+    // 準備
+    const cacheMap: callFnOnce.CacheMap = new Map();
+    let callCount = 0;
+    callFnOnce(cacheMap, "key", () => {
+      callCount += 1;
+
+      return "first";
+    });
+
+    // 実行
+    const result = callFnOnce({
+      cacheMap,
+      key: "key",
+      fn: () => {
+        callCount += 1;
+
+        return "second";
+      },
+    });
+
+    // 検証
+    expect(result).toBe("first");
+    expect(callCount).toBe(1);
+  });
+
   test("返り値の型が入力の型と一致する", () => {
     // 準備
     const cacheMap: callFnOnce.CacheMap = new Map();
@@ -141,5 +198,6 @@ describe("callFnOnce", () => {
     // 実行と検証
     expectTypeOf(callFnOnce(cacheMap, "key", () => 1)).toEqualTypeOf<number>();
     expectTypeOf(callFnOnce(cacheMap, "key", () => undefined)).toEqualTypeOf<undefined>();
+    expectTypeOf(callFnOnce({ cacheMap, key: "key", fn: () => 1 })).toEqualTypeOf<number>();
   });
 });

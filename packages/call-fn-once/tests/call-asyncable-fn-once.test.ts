@@ -248,6 +248,72 @@ describe("callAsyncableFnOnce", () => {
     });
   });
 
+  describe("オプション形式", () => {
+    test("オプション形式で同期値をキャッシュする", ({ expect }) => {
+      // 準備
+      const cacheMap: callAsyncableFnOnce.CacheMap = new Map();
+      let callCount = 0;
+
+      // 実行
+      const first = callAsyncableFnOnce({
+        cacheMap,
+        key: "key",
+        fn: () => {
+          callCount += 1;
+
+          return "first";
+        },
+      });
+      const second = callAsyncableFnOnce({
+        cacheMap,
+        key: "key",
+        fn: () => {
+          callCount += 1;
+
+          return "second";
+        },
+      });
+
+      // 検証
+      expect(first).toBe("first");
+      expect(second).toBe("first");
+      expect(callCount).toBe(1);
+    });
+
+    test("オプション形式で非同期値をキャッシュする", async ({ expect }) => {
+      // 準備
+      const cacheMap: callAsyncableFnOnce.CacheMap = new Map();
+      let callCount = 0;
+      const pending = Promise.resolve(
+        callAsyncableFnOnce({
+          cacheMap,
+          key: "key",
+          fn: () => {
+            callCount += 1;
+
+            return Promise.resolve("ok");
+          },
+        }),
+      );
+
+      // 実行
+      await expect(pending).resolves.toBe("ok");
+      const cached = callAsyncableFnOnce({
+        cacheMap,
+        key: "key",
+        fn: () => {
+          callCount += 1;
+
+          return Promise.resolve("unexpected");
+        },
+      });
+
+      // 検証
+      expect(cached).toBe("ok");
+      expect(callCount).toBe(1);
+    });
+  });
+
   test("返り値の型が入力に応じて決まる", () => {
     // 準備
     const cacheMap: callAsyncableFnOnce.CacheMap = new Map();
@@ -257,5 +323,8 @@ describe("callAsyncableFnOnce", () => {
     expectTypeOf(callAsyncableFnOnce(cacheMap, "key", () => Promise.resolve(1))).toEqualTypeOf<
       number | Promise<number>
     >();
+    expectTypeOf(
+      callAsyncableFnOnce({ cacheMap, key: "key", fn: () => Promise.resolve(1) }),
+    ).toEqualTypeOf<number | Promise<number>>();
   });
 });

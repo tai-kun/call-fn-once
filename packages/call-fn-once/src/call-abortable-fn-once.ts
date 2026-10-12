@@ -47,6 +47,31 @@ export namespace callAbortableFnOnce {
    * @template T コールバック関数の返り値の型です。
    */
   export type Return<T> = T extends Thenable ? MaybePromise<Awaited<T>> : T;
+
+  /**
+   * オブジェクト形式で渡す引数の型定義です。
+   */
+  export type Options<T> = {
+    /**
+     * 実行結果を保持する Map オブジェクトです。
+     */
+    cacheMap: CacheMap;
+
+    /**
+     * キャッシュを識別する一意のキーです。
+     */
+    key: unknown;
+
+    /**
+     * 実行するコールバック関数です。内部処理の中断用シグナルを引数に受け取ります。
+     */
+    fn: (signal: AbortSignal) => T;
+
+    /**
+     * 呼び出し元が渡す中断シグナルです。省略可能です。
+     */
+    signal?: AbortSignal | undefined;
+  };
 }
 
 /**
@@ -165,7 +190,41 @@ export function callAbortableFnOnce<T>(
   key: unknown,
   fn: (signal: AbortSignal) => T,
   signal?: AbortSignal,
+): callAbortableFnOnce.Return<T>;
+
+/**
+ * 指定されたキーごとに、コールバック関数を一度だけ実行して結果をキャッシュします。
+ *
+ * 引数をオブジェクト形式で渡す場合のオーバーロードです。
+ *
+ * @template T コールバック関数が返す値の型です。
+ * @param options 実行に必要な引数をまとめたオブジェクトです。
+ * @returns キャッシュ済みの値、または今回の実行結果を返します。
+ */
+export function callAbortableFnOnce<T>(
+  options: callAbortableFnOnce.Options<T>,
+): callAbortableFnOnce.Return<T>;
+
+export function callAbortableFnOnce<T>(
+  ...args:
+    | [options: callAbortableFnOnce.Options<T>]
+    | [
+        cacheMap: callAbortableFnOnce.CacheMap,
+        key: unknown,
+        fn: (signal: AbortSignal) => T,
+        signal?: AbortSignal | undefined,
+      ]
 ): callAbortableFnOnce.Return<T> {
+  let cacheMap: callAbortableFnOnce.CacheMap;
+  let key: unknown;
+  let fn: (signal: AbortSignal) => T;
+  let signal: AbortSignal | undefined;
+  if (args.length === 1) {
+    ({ cacheMap, key, fn, signal } = args[0]);
+  } else {
+    [cacheMap, key, fn, signal] = args;
+  }
+
   // 中断済みなら、即座に投げます。
   throwIfAborted(signal);
 

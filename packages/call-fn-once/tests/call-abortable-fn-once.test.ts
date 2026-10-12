@@ -380,6 +380,67 @@ describe("callAbortableFnOnce", () => {
     });
   });
 
+  describe("オプション形式", () => {
+    test("オプション形式で同期成功をキャッシュする", ({ expect }) => {
+      // 準備
+      const cacheMap: callAbortableFnOnce.CacheMap = new Map();
+      let callCount = 0;
+
+      // 実行
+      const first = callAbortableFnOnce({
+        cacheMap,
+        key: "key",
+        fn: () => {
+          callCount += 1;
+
+          return "first";
+        },
+      });
+      const second = callAbortableFnOnce({
+        cacheMap,
+        key: "key",
+        fn: () => {
+          callCount += 1;
+
+          return "second";
+        },
+      });
+
+      // 検証
+      expect(first).toBe("first");
+      expect(second).toBe("first");
+      expect(callCount).toBe(1);
+    });
+
+    test("オプション形式のシグナルで中断できる", async ({ expect }) => {
+      // 準備
+      const cacheMap: callAbortableFnOnce.CacheMap = new Map();
+      const deferred = createDeferred<string>();
+      const reason = new Error("abort-via-options");
+      const controller = new AbortController();
+      let innerSignal: AbortSignal | undefined;
+      const pending = Promise.resolve(
+        callAbortableFnOnce({
+          cacheMap,
+          key: "key",
+          fn: (signal) => {
+            innerSignal = signal;
+
+            return deferred.promise;
+          },
+          signal: controller.signal,
+        }),
+      );
+
+      // 実行
+      controller.abort(reason);
+
+      // 検証
+      await expect(pending).rejects.toBe(reason);
+      expect(innerSignal?.aborted).toBe(true);
+    });
+  });
+
   test("返り値の型が入力に応じて決まる", () => {
     // 準備
     const cacheMap: callAbortableFnOnce.CacheMap = new Map();
@@ -389,5 +450,8 @@ describe("callAbortableFnOnce", () => {
     expectTypeOf(callAbortableFnOnce(cacheMap, "key", () => Promise.resolve(1))).toEqualTypeOf<
       number | Promise<number>
     >();
+    expectTypeOf(
+      callAbortableFnOnce({ cacheMap, key: "key", fn: () => Promise.resolve(1) }),
+    ).toEqualTypeOf<number | Promise<number>>();
   });
 });
