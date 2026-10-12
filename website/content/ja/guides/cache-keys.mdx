@@ -1,0 +1,94 @@
+---
+title: キーと CacheMap の設計
+description: キャッシュのキーと Map の使い分けや、メモリー管理の考え方を説明します。
+---
+
+## キーの選び方 [#choosing-keys]
+
+キーは `unknown` 型のため、文字列以外の値も使えます。キャッシュの共有単位がそのままキーになります。
+
+| キーの種類 | 適した場面 | 例 |
+| --- | --- | --- |
+| 文字列 | 名前付きの単一処理に使います | `"config"`、`"user"` |
+| オブジェクト | 引数の組み合わせごとに分ける場合に使います | `{ userId: 1 }` |
+| オブジェクト参照 | インスタンスごとに分ける場合に使います | `request` |
+
+```ts keys.ts
+import { callFnOnce } from "call-fn-once";
+
+const cacheMap: callFnOnce.CacheMap = new Map();
+
+// 文字列キー: 単一の設定値を共有します。
+callFnOnce(cacheMap, "config", () => ({ timeout: 3000 }));
+
+// 参照キー: リクエストごとに独立させます。
+declare const request: object;
+callFnOnce(cacheMap, request, () => "per-request value");
+```
+
+:::warning
+毎回新しいオブジェクトをキーにすると、参照が異なるため共有されません。値で共有したい場合は、文字列などの安定したキーを組み立ててください。
+:::
+
+```ts bad-key.ts
+import { callFnOnce } from "call-fn-once";
+
+const cacheMap: callFnOnce.CacheMap = new Map();
+
+// 毎回参照が異なるため、共有されません。
+callFnOnce(cacheMap, { userId: 1 }, () => "first");
+callFnOnce(cacheMap, { userId: 1 }, () => "second");
+```
+
+値で共有したい場合は、内容を文字列化したキーを使ってください。
+
+```ts good-key.ts
+import { callFnOnce } from "call-fn-once";
+
+const cacheMap: callFnOnce.CacheMap = new Map();
+
+function getUser(userId: number): string {
+  return callFnOnce(cacheMap, `user:${userId}`, () => `user-${userId}`);
+}
+```
+
+## CacheMap の使い分け [#sharing-cache-maps]
+
+`CacheMap` ごとにキャッシュは独立します。用途や寿命が異なる場合は `Map` を分けてください。
+
+```ts maps.ts
+import { callFnOnce } from "call-fn-once";
+
+const configMap: callFnOnce.CacheMap = new Map();
+const requestMap: callFnOnce.CacheMap = new Map();
+
+// アプリ全体で共有する設定値です。
+callFnOnce(configMap, "config", () => ({ timeout: 3000 }));
+
+// リクエスト単位で使い捨てる値です。
+declare const request: object;
+callFnOnce(requestMap, request, () => "per-request value");
+```
+
+モジュール直下で `Map` を共有すると、アプリ全体で使い回せます。テストやリクエスト単位では、新しい `Map` を作成すればほかの実行と干渉しません。
+
+## メモリー管理 [#memory]
+
+- 不要になったキャッシュは `cacheMap.delete(key)` で破棄できます。
+- `Map` 自体を破棄すると、対応するキャッシュも破棄されます。
+- `callAbortableFnOnce` の内部状態は `WeakMap` で管理されるため、`CacheMap` を破棄すれば一緒に破棄されます。
+
+:::note
+長期稼働するアプリでは、キーが増え続けるとメモリー使用量も増えます。寿命の短い用途では `Map` を分けて、使い終わったら破棄してください。
+:::
+
+## 関連ページ [#related]
+
+<CardGroup cols={2}>
+  <Card title="クイックスタート" href="../getting-started/quick-start" icon="rocket">
+    基本的な呼び出し方を確認します。
+  </Card>
+  <Card title="エラー処理" href="./error-handling" icon="shield-alert">
+    失敗時の再実行の考え方を学びます。
+  </Card>
+</CardGroup>

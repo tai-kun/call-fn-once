@@ -187,7 +187,7 @@ describe("callAsyncableFnOnce", () => {
     test("Thenable を非同期として扱う", async ({ expect }) => {
       // 準備
       const cacheMap: callAsyncableFnOnce.CacheMap = new Map();
-      // ダックタイピングで Thenable 判定することを検証するため、意図的に `then` を持たせています。
+      // ダックタイピングで Thenable と判定することを検証するため、意図的に `then` を持たせています。
       // oxlint-disable
       const thenable = {
         then(resolve: (value: number) => void): void {

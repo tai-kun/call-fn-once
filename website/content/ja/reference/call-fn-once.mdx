@@ -1,0 +1,108 @@
+---
+title: callFnOnce
+description: 同期関数をキーごとに一度だけ実行し、結果を共有するための関数の仕様です。
+---
+
+指定されたキーごとに、コールバック関数を一度だけ実行して結果をキャッシュします。2 回目以降の呼び出しでは、再実行せずにキャッシュされた結果を返します。
+
+## 使い方 [#usage]
+
+```ts
+import { callFnOnce } from "call-fn-once";
+
+const cacheMap: callFnOnce.CacheMap = new Map();
+
+const result = callFnOnce(cacheMap, "key", () => 42);
+```
+
+オプション形式でも同じ結果が得られます。
+
+```ts options.ts
+import { callFnOnce } from "call-fn-once";
+
+const cacheMap: callFnOnce.CacheMap = new Map();
+
+const result = callFnOnce({
+  cacheMap,
+  key: "key",
+  fn: () => 42,
+});
+```
+
+## 仕様 [#behavior]
+
+- `undefined` の結果もキャッシュします。存在確認に `has()` を使うためです。
+- キャッシュしたオブジェクトは同一参照で返します。
+- 同期例外が投げられた場合はキャッシュしません。次回呼び出しで再実行されます。
+- キーごとに独立してキャッシュします。
+- `CacheMap` ごとに独立します。用途が異なる場合は `Map` を分けてください。
+
+```ts
+import { callFnOnce } from "call-fn-once";
+
+const cacheMap: callFnOnce.CacheMap = new Map();
+let callCount = 0;
+
+callFnOnce(cacheMap, "key", () => {
+  callCount += 1;
+
+  return undefined;
+});
+
+const cached = callFnOnce(cacheMap, "key", () => {
+  callCount += 1;
+
+  return "second";
+});
+
+console.log(cached);
+console.log(callCount);
+```
+
+:::warning
+非同期関数を渡すと、`Promise` オブジェクト自体がキャッシュされます。解決待ちの共有や拒否時の再実行は行いません。非同期処理を含む場合は `callAsyncableFnOnce` を使ってください。
+:::
+
+## 型定義 [#types]
+
+<TypeTable
+  type={{
+    cacheMap: {
+      type: "callFnOnce.CacheMap",
+      required: true,
+      description: "実行結果を保持する Map オブジェクトです。任意の値をキー、計算結果を値として保持します。",
+    },
+    key: {
+      type: "unknown",
+      required: true,
+      description: "キャッシュを識別する一意のキーです。",
+    },
+    fn: {
+      type: "() => T",
+      required: true,
+      description: "実行するコールバック関数です。",
+    },
+  }}
+/>
+
+戻り値の型は `callFnOnce.Return<T>` で、`T` と同じになります。
+
+```ts types.ts
+import { callFnOnce } from "call-fn-once";
+
+const cacheMap: callFnOnce.CacheMap = new Map();
+
+const num: number = callFnOnce(cacheMap, "num", () => 1);
+const nothing: undefined = callFnOnce(cacheMap, "nothing", () => undefined);
+```
+
+## 関連ページ [#related]
+
+<CardGroup cols={2}>
+  <Card title="callAsyncableFnOnce" href="./call-asyncable-fn-once" icon="code">
+    非同期処理の解決待ちも共有したい場合に使います。
+  </Card>
+  <Card title="エラー処理" href="../guides/error-handling" icon="book-open">
+    例外時と拒否時の再実行の考え方を学びます。
+  </Card>
+</CardGroup>

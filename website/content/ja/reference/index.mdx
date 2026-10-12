@@ -1,0 +1,40 @@
+---
+title: リファレンス
+description: 3 つの関数の引数や戻り値、使い分けを確認するための入り口です。
+---
+
+用途に合わせて、読むページを選んでください。
+
+## 一覧 [#overview]
+
+| 関数 | 用途 |
+| --- | --- |
+| `callFnOnce` | 同期処理の結果を共有したい場合 |
+| `callAsyncableFnOnce` | 非同期処理の解決待ちも共有したい場合 |
+| `callAbortableFnOnce` | さらに中断にも対応したい場合 |
+
+<CardGroup cols={3}>
+  <Card title="callFnOnce" href="./call-fn-once" icon="code">
+    同期専用の仕様を確認します。
+  </Card>
+  <Card title="callAsyncableFnOnce" href="./call-asyncable-fn-once" icon="code">
+    同期と非同期の両方に対応した仕様を確認します。
+  </Card>
+  <Card title="callAbortableFnOnce" href="./call-abortable-fn-once" icon="code">
+    中断に対応した仕様を確認します。
+  </Card>
+</CardGroup>
+
+## 引数形式の共通点 [#common-forms]
+
+3 つの関数はいずれも、次の 2 通りの呼び出しに対応します。
+
+```ts forms.ts
+// 位置引数形式
+callFnOnce(cacheMap, key, fn);
+
+// オプション形式
+callFnOnce({ cacheMap, key, fn });
+```
+
+位置引数とオプション形式はキャッシュを共有します。呼び出し箇所ごとに読みやすいほうを選んでください。

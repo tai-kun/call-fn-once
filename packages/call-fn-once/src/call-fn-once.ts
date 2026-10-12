@@ -5,7 +5,7 @@ export namespace callFnOnce {
   /**
    * 実行結果を保持する Map の型定義です。
    *
-   * 任意の値をキー、計算結果を値として保持します。
+   * 任意の値をキーとして、計算結果を値として保持します。
    */
   export type CacheMap = Map<unknown, any>;
 
@@ -17,7 +17,7 @@ export namespace callFnOnce {
   export type Return<T> = T;
 
   /**
-   * オブジェクト形式で渡す引数の型定義です。
+   * オブジェクト形式の引数の型定義です。
    */
   export type Options<T> = {
     /**
@@ -57,7 +57,7 @@ export function callFnOnce<T>(
 /**
  * 指定されたキーごとに、コールバック関数を一度だけ実行して結果をキャッシュします。
  *
- * 引数をオブジェクト形式で渡す場合のオーバーロードです。
+ * オブジェクト形式で引数を渡す場合のオーバーロードです。
  *
  * @template T コールバック関数が返す値の型です。
  * @param options 実行に必要な引数をまとめたオブジェクトです。

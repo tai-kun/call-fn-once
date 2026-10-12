@@ -1,0 +1,133 @@
+---
+title: callAsyncableFnOnce
+description: 同期値と非同期値のどちらも受け付け、解決待ちの Promise を共有するための関数の仕様です。
+---
+
+指定されたキーごとに、コールバック関数を一度だけ実行して結果をキャッシュします。同期値と非同期値のどちらも受け付けます。非同期の場合は解決待ちの `Promise` を共有し、解決後は確定した値を返します。
+
+## 使い方 [#usage]
+
+同期値の扱いは `callFnOnce` と同じです。非同期値を返すと、解決するまで同じ `Promise` が共有されます。
+
+```ts
+import { callAsyncableFnOnce } from "call-fn-once";
+
+const cacheMap: callAsyncableFnOnce.CacheMap = new Map();
+
+const pending = callAsyncableFnOnce(cacheMap, "user", async () => {
+  const res = await fetch("https://example.com/user");
+  return res.json();
+});
+```
+
+オプション形式でも同じ結果が得られます。
+
+```ts options.ts
+import { callAsyncableFnOnce } from "call-fn-once";
+
+const cacheMap: callAsyncableFnOnce.CacheMap = new Map();
+
+const pending = callAsyncableFnOnce({
+  cacheMap,
+  key: "user",
+  fn: async () => "ok",
+});
+```
+
+## 仕様 [#behavior]
+
+### 同期値 [#sync-values]
+
+- 同期値は実行結果をそのままキャッシュします。
+- `undefined` も正しくキャッシュします。
+- 同期例外はキャッシュしません。次回呼び出しで再実行されます。
+
+### 非同期値 [#async-values]
+
+- 解決前の並行呼び出しは 1 回の実行にまとめられ、コールバック関数は一度だけ実行されます。
+- 解決後はキャッシュが確定値に置き換わり、次回の呼び出しでは `Promise` ではなく値を直接返します。
+- 拒否時はキャッシュを破棄するため、次回の呼び出しで再実行できます。並行呼び出しの拒否は、待機中のすべての呼び出しに伝わります。
+- `Promise` 以外の Thenable も非同期として扱います。
+
+```ts
+import { callAsyncableFnOnce } from "call-fn-once";
+
+const cacheMap: callAsyncableFnOnce.CacheMap = new Map();
+let callCount = 0;
+
+const first = Promise.resolve(
+  callAsyncableFnOnce(cacheMap, "key", () => {
+    callCount += 1;
+    return Promise.resolve("ok");
+  }),
+);
+
+const second = Promise.resolve(
+  callAsyncableFnOnce(cacheMap, "key", () => {
+    callCount += 1;
+    return Promise.resolve("unexpected");
+  }),
+);
+
+await first;
+await second;
+console.log(callCount);
+
+const cached = callAsyncableFnOnce(cacheMap, "key", () => {
+  throw new Error("解決後は再実行されません");
+});
+
+console.log(cached);
+```
+
+:::note
+解決値が `undefined` の場合も、確定値としてキャッシュします。
+:::
+
+## 型定義 [#types]
+
+<TypeTable
+  type={{
+    cacheMap: {
+      type: "callAsyncableFnOnce.CacheMap",
+      required: true,
+      description: "実行結果を保持する Map オブジェクトです。同期値または解決前後の非同期値を保持します。",
+    },
+    key: {
+      type: "unknown",
+      required: true,
+      description: "キャッシュを識別する一意のキーです。",
+    },
+    fn: {
+      type: "() => T",
+      required: true,
+      description: "実行するコールバック関数です。同期値と非同期値のどちらも返せます。",
+    },
+  }}
+/>
+
+戻り値の型は `callAsyncableFnOnce.Return<T>` です。`T` が Thenable の場合は解決値を `MaybePromise` でラップした型になり、それ以外の場合は `T` のままです。
+
+```ts types.ts
+import { callAsyncableFnOnce } from "call-fn-once";
+
+const cacheMap: callAsyncableFnOnce.CacheMap = new Map();
+
+const syncValue: number = callAsyncableFnOnce(cacheMap, "sync", () => 1);
+const asyncValue: number | Promise<number> = callAsyncableFnOnce(
+  cacheMap,
+  "async",
+  () => Promise.resolve(1),
+);
+```
+
+## 関連ページ [#related]
+
+<CardGroup cols={2}>
+  <Card title="callFnOnce" href="./call-fn-once" icon="code">
+    同期処理だけを扱う場合の仕様を確認します。
+  </Card>
+  <Card title="callAbortableFnOnce" href="./call-abortable-fn-once" icon="code">
+    中断に対応する必要がある場合の仕様を確認します。
+  </Card>
+</CardGroup>

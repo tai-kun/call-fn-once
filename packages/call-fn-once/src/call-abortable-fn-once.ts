@@ -2,13 +2,13 @@ import { getAbortReason, throwIfAborted } from "abort-signal-utils";
 import { type Thenable, type MaybePromise, isThenable } from "maypromise";
 
 /**
- * callAbortableFnOnce 関数に関する型定義をまとめた名前空間です。
+ * `callAbortableFnOnce` 関数に関する型定義をまとめた名前空間です。
  */
 export namespace callAbortableFnOnce {
   /**
    * キャッシュの状態を表す型定義です。
    *
-   * 実行中（busy: true）と完了済み（busy: false）で、`value` の意味が異なります。
+   * 実行中（busy: true）か完了済み（busy: false）かで、`value` の意味が異なります。
    */
   export type Cache =
     | {
@@ -24,7 +24,7 @@ export namespace callAbortableFnOnce {
       }
     | {
         /**
-         * 処理が完了し、結果が確定したことを示すフラグです。
+         * 処理が完了して結果が確定したことを示すフラグです。
          */
         readonly busy: false;
 
@@ -42,14 +42,14 @@ export namespace callAbortableFnOnce {
   /**
    * {@link callAbortableFnOnce} が返す値の型を定義します。
    *
-   * `T` が `then` メソッドを持つ型（Promise ライク）の場合、解決値を {@link MaybePromise} でラップした型を返します。
+   * `T` が `then` メソッドを持つ型（Promise ライク）の場合、解決値を {@link MaybePromise} でラップした型です。
    *
    * @template T コールバック関数の返り値の型です。
    */
   export type Return<T> = T extends Thenable ? MaybePromise<Awaited<T>> : T;
 
   /**
-   * オブジェクト形式で渡す引数の型定義です。
+   * オブジェクト形式の引数の型定義です。
    */
   export type Options<T> = {
     /**
@@ -77,11 +77,11 @@ export namespace callAbortableFnOnce {
 /**
  * 実行中の非同期処理に紐づく内部状態の型定義です。
  *
- * 待機中の中断シグナルを保持し、すべてが中断されたら元の処理を中断します。
+ * 待機中の中断シグナルを保持します。すべてが中断されたら元の処理を中断します。
  */
 type State = {
   /**
-   * コールバック関数に渡す、内部処理の中断用 AbortController です。
+   * コールバック関数に渡す内部処理の中断用 AbortController です。
    */
   readonly ctrl: AbortController;
 
@@ -94,7 +94,7 @@ type State = {
 /**
  * キャッシュ用 Map ごとに実行状態を管理する WeakMap です。
  *
- * キャッシュ用 Map が破棄されると対応する状態も破棄されるため、メモリーリークを防げます。
+ * キャッシュ用 Map が破棄されると対応する状態も破棄されるため、メモリリークを防げます。
  */
 const stateMapMap = /*#__PURE__*/ new WeakMap<callAbortableFnOnce.CacheMap, Map<unknown, State>>();
 
@@ -108,7 +108,7 @@ const dummySignal = /*#__PURE__*/ new AbortController().signal;
 /**
  * キャッシュ用 Map に対応する内部状態の Map を取得します。
  *
- * 存在しない場合は作成します。
+ * 存在しない場合は作成して返します。
  */
 function getOrCreateStateMap(cacheMap: callAbortableFnOnce.CacheMap): Map<unknown, State> {
   let stateMap = stateMapMap.get(cacheMap);
@@ -174,7 +174,7 @@ function attachAbort(
 /**
  * 指定されたキーごとに、コールバック関数を一度だけ実行して結果をキャッシュします。
  *
- * 同期値と非同期値のどちらも受け付けます。非同期の場合は解決待ちの Promise を共有し、解決後はその値を再利用します。
+ * 同期値と非同期値のどちらも受け付けます。非同期の場合は解決待ちの Promise を共有します。解決後はその値を再利用します。
  *
  * すべての呼び出し元が中断したときに限り、実行中のコールバック関数を中断します。
  *
@@ -195,7 +195,7 @@ export function callAbortableFnOnce<T>(
 /**
  * 指定されたキーごとに、コールバック関数を一度だけ実行して結果をキャッシュします。
  *
- * 引数をオブジェクト形式で渡す場合のオーバーロードです。
+ * オブジェクト形式で引数を渡す場合のオーバーロードです。
  *
  * @template T コールバック関数が返す値の型です。
  * @param options 実行に必要な引数をまとめたオブジェクトです。

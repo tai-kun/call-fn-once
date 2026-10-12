@@ -7,21 +7,21 @@ export namespace callAsyncableFnOnce {
   /**
    * 実行結果を保持する Map の型定義です。
    *
-   * 任意の値をキー、計算結果を値として保持します。
+   * 任意の値をキーとして、計算結果を値として保持します。
    */
   export type CacheMap = Map<unknown, MaybePromise<any>>;
 
   /**
    * {@link callAsyncableFnOnce} が返す値の型を定義します。
    *
-   * `T` が `then` メソッドを持つ型（Promise ライク）の場合、解決値を {@link MaybePromise} でラップした型を返します。
+   * `T` が `then` メソッドを持つ型（Promise ライク）の場合、解決値を {@link MaybePromise} でラップした型です。
    *
    * @template T コールバック関数の返り値の型です。
    */
   export type Return<T> = T extends Thenable ? MaybePromise<Awaited<T>> : T;
 
   /**
-   * オブジェクト形式で渡す引数の型定義です。
+   * オブジェクト形式の引数の型定義です。
    */
   export type Options<T> = {
     /**
@@ -44,7 +44,7 @@ export namespace callAsyncableFnOnce {
 /**
  * 指定されたキーごとに、コールバック関数を一度だけ実行して結果をキャッシュします。
  *
- * 同期値と非同期値のどちらも受け付けます。非同期の場合は解決待ちの Promise を共有し、解決後はその値を返します。
+ * 同期値と非同期値のどちらも受け付けます。非同期の場合は解決待ちの Promise を共有します。解決後はその値を返します。
  *
  * @template T コールバック関数が返す値の型です。
  * @param cacheMap 実行結果を保持する Map オブジェクトです。
@@ -61,7 +61,7 @@ export function callAsyncableFnOnce<T>(
 /**
  * 指定されたキーごとに、コールバック関数を一度だけ実行して結果をキャッシュします。
  *
- * 引数をオブジェクト形式で渡す場合のオーバーロードです。
+ * オブジェクト形式で引数を渡す場合のオーバーロードです。
  *
  * @template T コールバック関数が返す値の型です。
  * @param options 実行に必要な引数をまとめたオブジェクトです。

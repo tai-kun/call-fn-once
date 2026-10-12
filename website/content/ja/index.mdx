@@ -1,4 +1,59 @@
 ---
-title: "Call Fn Once"
-description: ""
+title: Call Fn Once
+description: キーごとにコールバック関数を一度だけ実行し、結果を共有するための小さな TypeScript ユーティリティーです。
 ---
+
+キーごとにコールバック関数を一度だけ実行し、結果をキャッシュして共有する、小さな TypeScript ユーティリティーです。用途に合わせて使える 3 つの関数を提供します。
+
+## 特徴 [#features]
+
+- キーと `Map` の組み合わせで実行結果を管理します。
+- 同期値はそのまま、非同期値は解決待ちの `Promise` を共有します。
+- 失敗した結果はキャッシュしないため、次回の呼び出しで再実行できます。
+- 中断に対応した関数では、待機中の呼び出し元がすべて中断したときに限り、内部処理を中断します。
+- 外部への依存は `abort-signal-utils` と `maypromise` だけで、フレームワークには依存しません。
+
+## 3 つの関数の選び方 [#choosing-a-function]
+
+| 関数 | 用途 | 同期 | 非同期 | 中断 |
+| --- | --- | --- | --- | --- |
+| `callFnOnce` | 同期処理のメモ化に使います | ○ | — | — |
+| `callAsyncableFnOnce` | 同期と非同期が混在する場合に使います | ○ | ○ | — |
+| `callAbortableFnOnce` | 中断に対応する必要がある場合に使います | ○ | ○ | ○ |
+
+どれを選ぶか迷ったときは、同期処理だけなら `callFnOnce`、非同期処理を含むなら `callAsyncableFnOnce`、外部から中断できる必要があるなら `callAbortableFnOnce` を選んでください。
+
+## クイックスタート [#quick-start]
+
+```ts
+import { callFnOnce } from "call-fn-once";
+
+const cacheMap: callFnOnce.CacheMap = new Map();
+
+const first = callFnOnce(cacheMap, "config", () => {
+  return { timeout: 3000 };
+});
+
+const second = callFnOnce(cacheMap, "config", () => {
+  throw new Error("2 回目は実行されません");
+});
+
+console.log(first === second);
+```
+
+2 回目の呼び出しではコールバック関数を実行せず、1 回目の結果をそのまま返します。詳しい手順はクイックスタートで紹介します。
+
+<CardGroup cols={2}>
+  <Card title="インストール" href="./getting-started/installation" icon="download">
+    パッケージの追加方法と動作環境を確認します。
+  </Card>
+  <Card title="クイックスタート" href="./getting-started/quick-start" icon="rocket">
+    位置引数とオプション形式の基本的な使い方を学びます。
+  </Card>
+  <Card title="リファレンス" href="./reference" icon="code">
+    3 つの関数の引数と戻り値を詳しく確認します。
+  </Card>
+  <Card title="ガイド" href="./guides" icon="book-open">
+    キー設計やエラー処理などの実践的な知識を学びます。
+  </Card>
+</CardGroup>

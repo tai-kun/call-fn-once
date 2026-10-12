@@ -1,4 +1,18 @@
 ---
 title: ガイド
-description: ""
+description: キー設計やエラー処理、中断などの実践的な使い方をまとめた入り口です。
 ---
+
+目的に合わせて、読むページを選んでください。
+
+<CardGroup cols={3}>
+  <Card title="キーと CacheMap の設計" href="./cache-keys" icon="key">
+    キーの選び方と Map の使い分けを学びます。
+  </Card>
+  <Card title="エラー処理" href="./error-handling" icon="shield-alert">
+    例外時と拒否時の再実行の考え方を学びます。
+  </Card>
+  <Card title="中断パターン" href="./abort-patterns" icon="octagon-x">
+    AbortSignal の協調的な中断の使い方を学びます。
+  </Card>
+</CardGroup>

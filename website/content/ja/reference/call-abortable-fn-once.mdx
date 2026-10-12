@@ -1,0 +1,140 @@
+---
+title: callAbortableFnOnce
+description: 同期と非同期に対応し、AbortSignal による協調的な中断を行うための関数の仕様です。
+---
+
+指定されたキーごとに、コールバック関数を一度だけ実行して結果をキャッシュします。同期値と非同期値のどちらも受け付けます。非同期の場合は解決待ちの `Promise` を共有し、解決後はその値を再利用します。実行中のコールバック関数を中断するのは、すべての呼び出し元が中断したときに限ります。
+
+## 使い方 [#usage]
+
+コールバック関数は内部処理の中断用シグナルを受け取ります。呼び出し元のシグナルは、第 4 引数またはオプション形式で渡せます。
+
+```ts
+import { callAbortableFnOnce } from "call-fn-once";
+
+const cacheMap: callAbortableFnOnce.CacheMap = new Map();
+const controller = new AbortController();
+
+const pending = callAbortableFnOnce(
+  cacheMap,
+  "user",
+  async (signal) => {
+    const res = await fetch("https://example.com/user", { signal });
+    return res.json();
+  },
+  controller.signal,
+);
+```
+
+オプション形式では `signal` フィールドで渡します。
+
+```ts options.ts
+import { callAbortableFnOnce } from "call-fn-once";
+
+const cacheMap: callAbortableFnOnce.CacheMap = new Map();
+const controller = new AbortController();
+
+const pending = callAbortableFnOnce({
+  cacheMap,
+  key: "user",
+  fn: async (signal) => "ok",
+  signal: controller.signal,
+});
+```
+
+## 仕様 [#behavior]
+
+### 同期実行 [#sync-execution]
+
+- コールバック関数に内部処理の中断用シグナルを渡します。同期成功はそのままキャッシュします。
+- 同期例外は状態を残さず、次回呼び出しで再実行します。
+- 中断済みのシグナルを渡した場合は、関数を実行せずに中断理由を投げます。
+
+### 非同期実行 [#async-execution]
+
+- 解決待ちの非同期処理は共有します。解決後は確定値としてキャッシュし、次回呼び出しでは値を直接返します。
+- 非同期失敗はキャッシュしません。次回呼び出しで再実行します。
+- キーごとに独立してキャッシュします。
+
+### 中断 [#abort]
+
+中断の規則は次のとおりです。
+
+- 待機中の呼び出し元が 1 つでも残っていれば、内部処理は中断しません。
+- 待機中の呼び出し元がすべて中断したときに限り、内部処理を中断してキャッシュを破棄します。
+- シグナルを指定しない呼び出しがある限り、内部処理は中断しません。内部では発火しないダミーのシグナルを待機者として登録し、待機者が空になるのを防ぎます。
+- 確定後のキャッシュは通常の値として返します。ただし、中断済みシグナルと一緒に呼び出した場合は、キャッシュがあっても中断理由を投げます。
+
+```ts abort.ts
+import { callAbortableFnOnce } from "call-fn-once";
+
+const cacheMap: callAbortableFnOnce.CacheMap = new Map();
+const firstController = new AbortController();
+const secondController = new AbortController();
+
+const first = callAbortableFnOnce(
+  cacheMap,
+  "key",
+  (signal) => fetch("https://example.com/data", { signal }),
+  firstController.signal,
+);
+
+const second = callAbortableFnOnce(
+  cacheMap,
+  "key",
+  (signal) => fetch("https://example.com/data", { signal }),
+  secondController.signal,
+);
+
+// 1 つ目だけ中断しても、内部の fetch は継続します。
+firstController.abort();
+
+// 2 つ目も中断すると、待機者がいなくなるため内部処理が中断します。
+secondController.abort();
+```
+
+:::tip
+中断理由は `abort-signal-utils` の `getAbortReason` で取得し、`throwIfAborted` で事前に確認します。中断理由はそのまま伝わるため、呼び出し元ごとの理由が混ざることはありません。
+:::
+
+## 型定義 [#types]
+
+<TypeTable
+  type={{
+    cacheMap: {
+      type: "callAbortableFnOnce.CacheMap",
+      required: true,
+      description: "実行結果を保持する Map オブジェクトです。実行中と完了済みの状態を区別して保持します。",
+    },
+    key: {
+      type: "unknown",
+      required: true,
+      description: "キャッシュを識別する一意のキーです。",
+    },
+    fn: {
+      type: "(signal: AbortSignal) => T",
+      required: true,
+      description: "実行するコールバック関数です。内部処理の中断用シグナルを引数に受け取ります。",
+    },
+    signal: {
+      type: "AbortSignal",
+      required: false,
+      description: "呼び出し元が渡す中断シグナルです。省略できます。",
+    },
+  }}
+/>
+
+戻り値の型は `callAbortableFnOnce.Return<T>` です。`T` が Thenable の場合は解決値を `MaybePromise` でラップした型になり、それ以外の場合は `T` のままです。
+
+キャッシュの値は `callAbortableFnOnce.Cache` として保持します。実行中は `busy: true` と `Promise`、完了後は `busy: false` と確定値を格納します。
+
+## 関連ページ [#related]
+
+<CardGroup cols={2}>
+  <Card title="callAsyncableFnOnce" href="./call-asyncable-fn-once" icon="code">
+    中断が不要な場合の非同期共有の仕様を確認します。
+  </Card>
+  <Card title="中断パターン" href="../guides/abort-patterns" icon="book-open">
+    待機者の管理とダミーシグナルの考え方を学びます。
+  </Card>
+</CardGroup>

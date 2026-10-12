@@ -1,0 +1,127 @@
+---
+title: 中断パターン
+description: AbortSignal を使った協調的な中断と、待機者の管理方法を説明します。
+---
+
+このページでは `callAbortableFnOnce` の中断の考え方を説明します。中断が不要な場合は `callAsyncableFnOnce` を使ってください。
+
+## 基本パターン [#basic-pattern]
+
+コールバック関数は内部処理の中断用シグナルを受け取ります。`fetch` などの中断対応 API にそのまま渡してください。
+
+```ts basic.ts
+import { callAbortableFnOnce } from "call-fn-once";
+
+const cacheMap: callAbortableFnOnce.CacheMap = new Map();
+const controller = new AbortController();
+
+const pending = callAbortableFnOnce(
+  cacheMap,
+  "data",
+  (signal) => fetch("https://example.com/data", { signal }),
+  controller.signal,
+);
+
+controller.abort();
+await pending.catch((error: unknown) => error);
+```
+
+中断済みのシグナルを渡した場合は、関数を実行せずに中断理由を投げます。
+
+## 待機者の管理 [#waiters]
+
+実行中の処理を複数の呼び出し元が待っている場合は、次の規則に従って中断します。
+
+- 1 人でも待機者が残っていれば、内部処理は継続します。
+- 待機者全員が中断したときに限り、内部処理を中断してキャッシュを破棄します。
+- 後から参加した呼び出しも待機者として数えます。
+
+```ts waiters.ts
+import { callAbortableFnOnce } from "call-fn-once";
+
+const cacheMap: callAbortableFnOnce.CacheMap = new Map();
+const firstController = new AbortController();
+const secondController = new AbortController();
+
+function load(signal: AbortSignal): Promise<string> {
+  return callAbortableFnOnce(
+    cacheMap,
+    "key",
+    (innerSignal) => fetch("https://example.com/data", { signal: innerSignal }).then(() => "ok"),
+    signal,
+  );
+}
+
+const first = load(firstController.signal);
+const second = load(secondController.signal);
+
+// 1 つ目の中断では、内部処理は継続します。
+firstController.abort();
+await first.catch((error: unknown) => error);
+await second;
+```
+
+:::note
+中断理由は呼び出し元ごとに伝わります。先に中断した呼び出しにはその理由が返り、残りの呼び出しは待機を続けます。
+:::
+
+## シグナルなしの呼び出し [#without-signal]
+
+シグナルを指定しない呼び出しがある限り、内部処理は中断しません。内部では発火しないダミーのシグナルを待機者として登録し、待機者が空になるのを防ぎます。
+
+```ts dummy.ts
+import { callAbortableFnOnce } from "call-fn-once";
+
+const cacheMap: callAbortableFnOnce.CacheMap = new Map();
+const controller = new AbortController();
+
+// シグナルなしの呼び出しが残るため、内部処理は継続します。
+const withoutSignal = callAbortableFnOnce(cacheMap, "key", () => "ok");
+const withSignal = callAbortableFnOnce(
+  cacheMap,
+  "key",
+  () => "ok",
+  controller.signal,
+);
+
+controller.abort();
+await Promise.resolve(withSignal).catch((error: unknown) => error);
+await withoutSignal;
+```
+
+画面遷移などで確実に中断したい処理と、中断せずに完了させたい処理を混在させる場合に役立ちます。
+
+## 確定後の扱い [#settled-cache]
+
+解決後に確定した値は通常のキャッシュとして返します。ただし、中断済みのシグナルと一緒に呼び出した場合は、確定済みでも中断理由を投げます。
+
+```ts settled.ts
+import { callAbortableFnOnce } from "call-fn-once";
+
+const cacheMap: callAbortableFnOnce.CacheMap = new Map();
+callAbortableFnOnce(cacheMap, "key", () => "cached");
+
+const controller = new AbortController();
+controller.abort(new Error("aborted-after-done"));
+
+try {
+  callAbortableFnOnce(cacheMap, "key", () => "unexpected", controller.signal);
+} catch (error: unknown) {
+  console.error(error);
+}
+```
+
+:::tip
+確定前の実行状態は `busy: true`、確定後は `busy: false` として `Cache` に格納します。実行中の有無を直接確認したい場合は、このフラグを参照してください。
+:::
+
+## 関連ページ [#related]
+
+<CardGroup cols={2}>
+  <Card title="callAbortableFnOnce" href="../reference/call-abortable-fn-once" icon="code">
+    中断の仕様と型定義を確認します。
+  </Card>
+  <Card title="エラー処理" href="./error-handling" icon="shield-alert">
+    失敗時の再実行の考え方を学びます。
+  </Card>
+</CardGroup>

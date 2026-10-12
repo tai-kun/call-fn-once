@@ -1,0 +1,124 @@
+---
+title: エラー処理
+description: 同期例外と非同期拒否が発生した場合のキャッシュの扱いと、再実行の考え方を説明します。
+---
+
+## 基本方針 [#policy]
+
+- 成功した結果だけをキャッシュします。
+- 失敗した場合はキャッシュしないため、次回呼び出しで再実行できます。
+- 呼び出し元の例外や拒否理由はそのまま伝えます。ラップしません。
+
+## 同期例外 [#sync-errors]
+
+コールバック関数が例外を投げた場合、その呼び出しは失敗として扱われ、次回の呼び出しで再実行できます。
+
+```ts
+import { callFnOnce } from "call-fn-once";
+
+const cacheMap: callFnOnce.CacheMap = new Map();
+let callCount = 0;
+
+try {
+  callFnOnce(cacheMap, "key", () => {
+    callCount += 1;
+    throw new Error("boom");
+  });
+} catch {
+  // 初回は失敗します。
+}
+
+const retried = callFnOnce(cacheMap, "key", () => {
+  callCount += 1;
+  return "recovered";
+});
+
+console.log(retried);
+console.log(callCount);
+```
+
+`callAsyncableFnOnce` と `callAbortableFnOnce` の同期例外も同じ扱いです。状態を残さないため、安全に再試行できます。
+
+## 非同期拒否 [#async-rejection]
+
+非同期処理が拒否された場合もキャッシュを破棄するため、次回の呼び出しで再実行できます。解決前の並行呼び出しには、同じ拒否理由が伝わります。
+
+```ts
+import { callAsyncableFnOnce } from "call-fn-once";
+
+const cacheMap: callAsyncableFnOnce.CacheMap = new Map();
+let callCount = 0;
+
+const failure = new Error("fail");
+
+const first = Promise.resolve(
+  callAsyncableFnOnce(cacheMap, "key", () => {
+    callCount += 1;
+    return Promise.reject(failure);
+  }),
+);
+
+const second = Promise.resolve(
+  callAsyncableFnOnce(cacheMap, "key", () => {
+    callCount += 1;
+    return Promise.resolve("unexpected");
+  }),
+);
+
+await first.catch((error: unknown) => error);
+await second.catch((error: unknown) => error);
+console.log(callCount);
+
+const retried = callAsyncableFnOnce(cacheMap, "key", () => {
+  callCount += 1;
+  return "recovered";
+});
+
+console.log(retried);
+console.log(callCount);
+```
+
+:::note
+`callAbortableFnOnce` の非同期失敗も同じ扱いです。実行中の共有 `Promise` が拒否されたら、キャッシュと内部状態を破棄します。
+:::
+
+## 再試行の考え方 [#retry]
+
+- 失敗はキャッシュしないため、呼び出し側で再試行を制御できます。
+- リトライ回数や間隔は、このライブラリーでは管理しません。呼び出し側で実装してください。
+- 一時的な失敗と恒久的な失敗を区別したい場合は、キーや `CacheMap` を分けてください。
+
+```ts retry.ts
+import { callAsyncableFnOnce } from "call-fn-once";
+
+const cacheMap: callAsyncableFnOnce.CacheMap = new Map();
+
+async function getConfig(): Promise<string> {
+  return callAsyncableFnOnce(cacheMap, "config", async () => "ok");
+}
+
+async function getConfigWithRetry(maxAttempts: number): Promise<string> {
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      return await getConfig();
+    } catch (error: unknown) {
+      lastError = error;
+    }
+  }
+
+  throw lastError;
+}
+```
+
+## 関連ページ [#related]
+
+<CardGroup cols={2}>
+  <Card title="callAsyncableFnOnce" href="../reference/call-asyncable-fn-once" icon="code">
+    解決待ちの共有と拒否時の仕様を確認します。
+  </Card>
+  <Card title="callAbortableFnOnce" href="../reference/call-abortable-fn-once" icon="code">
+    中断時のキャッシュ破棄の仕様を確認します。
+  </Card>
+</CardGroup>
