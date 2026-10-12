@@ -34,6 +34,7 @@ await pending.catch((error: unknown) => error);
 
 - 1 人でも待機者が残っていれば、内部処理は継続します。
 - 待機者全員が中断したときに限り、内部処理を中断してキャッシュを破棄します。
+- すべて中断した後はキャッシュが残らないため、次回呼び出しで再実行できます。
 - 後から参加した呼び出しも待機者として数えます。
 
 ```ts waiters.ts
@@ -77,12 +78,7 @@ const controller = new AbortController();
 
 // シグナルなしの呼び出しが残るため、内部処理は継続します。
 const withoutSignal = callAbortableFnOnce(cacheMap, "key", () => "ok");
-const withSignal = callAbortableFnOnce(
-  cacheMap,
-  "key",
-  () => "ok",
-  controller.signal,
-);
+const withSignal = callAbortableFnOnce(cacheMap, "key", () => "ok", controller.signal);
 
 controller.abort();
 await Promise.resolve(withSignal).catch((error: unknown) => error);
@@ -112,7 +108,7 @@ try {
 ```
 
 :::tip
-確定前の実行状態は `busy: true`、確定後は `busy: false` として `Cache` に格納します。実行中の有無を直接確認したい場合は、このフラグを参照してください。
+確定前の実行状態は `busy: true`、確定後は `busy: false` として `Cache` に格納します。実行中かどうかを直接確認したい場合は、このフラグを参照してください。
 :::
 
 ## 関連ページ [#related]

@@ -48,6 +48,7 @@ const pending = callAsyncableFnOnce({
 - 解決後はキャッシュが確定値に置き換わり、次回の呼び出しでは `Promise` ではなく値を直接返します。
 - 拒否時はキャッシュを破棄するため、次回の呼び出しで再実行できます。並行呼び出しの拒否は、待機中のすべての呼び出しに伝わります。
 - `Promise` 以外の Thenable も非同期として扱います。
+- 同一 `Map` の同一キーは、コールバック関数の同期的な実行中に再び呼び出せません。再入は `ReentrantCallError` を同期的に投げます。解決待ちの共有のために後から参加する呼び出しは対象外です。詳しくはエラー処理の基本方針を見てください。
 
 ```ts
 import { callAsyncableFnOnce } from "call-fn-once";
@@ -91,7 +92,8 @@ console.log(cached);
     cacheMap: {
       type: "callAsyncableFnOnce.CacheMap",
       required: true,
-      description: "実行結果を保持する Map オブジェクトです。同期値または解決前後の非同期値を保持します。",
+      description:
+        "実行結果を保持する Map オブジェクトです。同期値または解決前後の非同期値を保持します。",
     },
     key: {
       type: "unknown",
@@ -114,10 +116,8 @@ import { callAsyncableFnOnce } from "call-fn-once";
 const cacheMap: callAsyncableFnOnce.CacheMap = new Map();
 
 const syncValue: number = callAsyncableFnOnce(cacheMap, "sync", () => 1);
-const asyncValue: number | Promise<number> = callAsyncableFnOnce(
-  cacheMap,
-  "async",
-  () => Promise.resolve(1),
+const asyncValue: number | Promise<number> = callAsyncableFnOnce(cacheMap, "async", () =>
+  Promise.resolve(1),
 );
 ```
 

@@ -1,6 +1,7 @@
 import { describe, expectTypeOf, test } from "vitest";
 
 import { callAsyncableFnOnce } from "../src/call-asyncable-fn-once.js";
+import { ReentrantCallError } from "../src/errors.js";
 import { captureThrow, createDeferred } from "./_helpers.js";
 
 describe("callAsyncableFnOnce", () => {
@@ -311,6 +312,82 @@ describe("callAsyncableFnOnce", () => {
       // 検証
       expect(cached).toBe("ok");
       expect(callCount).toBe(1);
+    });
+  });
+
+  describe("再入", () => {
+    test("同一キーでの同期的な再呼び出しは投げて再実行できる", ({ expect }) => {
+      // 準備
+      const cacheMap: callAsyncableFnOnce.CacheMap = new Map();
+      let callCount = 0;
+
+      // 実行
+      const caught = captureThrow(() => {
+        callAsyncableFnOnce(cacheMap, "key", () => {
+          callCount += 1;
+          callAsyncableFnOnce(cacheMap, "key", () => "inner");
+
+          return "outer";
+        });
+      });
+
+      // 検証
+      expect(caught).toBeInstanceOf(ReentrantCallError);
+      expect((caught as ReentrantCallError).code).toBe("ERR_CALL_FN_ONCE_REENTRANT_CALL");
+      expect(callCount).toBe(1);
+      const retried = callAsyncableFnOnce(cacheMap, "key", () => {
+        callCount += 1;
+
+        return "recovered";
+      });
+      expect(retried).toBe("recovered");
+      expect(callCount).toBe(2);
+    });
+
+    test("非同期値を返す前の同一キー呼び出しは投げて再実行できる", async ({ expect }) => {
+      // 準備
+      const cacheMap: callAsyncableFnOnce.CacheMap = new Map();
+      const deferred = createDeferred<string>();
+      let callCount = 0;
+
+      // 実行
+      const caught = captureThrow(() => {
+        void callAsyncableFnOnce(cacheMap, "key", () => {
+          callCount += 1;
+          callAsyncableFnOnce(cacheMap, "key", () => "inner");
+
+          return deferred.promise;
+        });
+      });
+      deferred.resolve("unused");
+
+      // 検証
+      expect(caught).toBeInstanceOf(ReentrantCallError);
+      expect(callCount).toBe(1);
+      const retried = Promise.resolve(
+        callAsyncableFnOnce(cacheMap, "key", () => {
+          callCount += 1;
+
+          return Promise.resolve("recovered");
+        }),
+      );
+      await expect(retried).resolves.toBe("recovered");
+      expect(callCount).toBe(2);
+    });
+
+    test("異なるキーでの再入は許可する", ({ expect }) => {
+      // 準備
+      const cacheMap: callAsyncableFnOnce.CacheMap = new Map();
+
+      // 実行
+      const result = callAsyncableFnOnce(cacheMap, "a", () => {
+        const inner = callAsyncableFnOnce(cacheMap, "b", () => "B");
+
+        return `A:${inner}`;
+      });
+
+      // 検証
+      expect(result).toBe("A:B");
     });
   });
 

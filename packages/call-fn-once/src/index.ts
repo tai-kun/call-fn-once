@@ -6,3 +6,11 @@ export { callAsyncableFnOnce } from "./call-asyncable-fn-once.js";
 
 export type * from "./call-fn-once.js";
 export { callFnOnce } from "./call-fn-once.js";
+
+export type * from "./errors.js";
+export {
+  CallFnOnceError,
+  setErrorMessage,
+  ReentrantCallError,
+  InconsistentCacheError,
+} from "./errors.js";

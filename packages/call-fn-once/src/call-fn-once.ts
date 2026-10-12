@@ -1,3 +1,5 @@
+import { withReentrancyGuard } from "./_reentrancy-guard.js";
+
 /**
  * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-fn-once#types)
  */
@@ -66,8 +68,11 @@ export function callFnOnce<T>(
     return cacheMap.get(key);
   }
 
-  const ret = fn();
-  cacheMap.set(key, ret);
+  // 同期実行中の再入を禁止するため、ガード内で実行します。
+  return withReentrancyGuard(cacheMap, key, () => {
+    const ret = fn();
+    cacheMap.set(key, ret);
 
-  return ret;
+    return ret;
+  });
 }

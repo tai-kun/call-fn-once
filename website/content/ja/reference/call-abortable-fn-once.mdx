@@ -62,6 +62,7 @@ const pending = callAbortableFnOnce({
 
 - 待機中の呼び出し元が 1 つでも残っていれば、内部処理は中断しません。
 - 待機中の呼び出し元がすべて中断したときに限り、内部処理を中断してキャッシュを破棄します。
+- すべて中断した後はキャッシュが残らないため、次回呼び出しで再実行できます。遅れて確定した古い結果では上書きしません。
 - シグナルを指定しない呼び出しがある限り、内部処理は中断しません。内部では発火しないダミーのシグナルを待機者として登録し、待機者が空になるのを防ぎます。
 - 確定後のキャッシュは通常の値として返します。ただし、中断済みシグナルと一緒に呼び出した場合は、キャッシュがあっても中断理由を投げます。
 
@@ -104,7 +105,8 @@ secondController.abort();
     cacheMap: {
       type: "callAbortableFnOnce.CacheMap",
       required: true,
-      description: "実行結果を保持する Map オブジェクトです。実行中と完了済みの状態を区別して保持します。",
+      description:
+        "実行結果を保持する Map オブジェクトです。実行中と完了済みの状態を区別して保持します。",
     },
     key: {
       type: "unknown",
@@ -127,6 +129,46 @@ secondController.abort();
 戻り値の型は `callAbortableFnOnce.Return<T>` です。`T` が Thenable の場合は解決値を `MaybePromise` でラップした型になり、それ以外の場合は `T` のままです。
 
 キャッシュの値は `callAbortableFnOnce.Cache` として保持します。実行中は `busy: true` と `Promise`、完了後は `busy: false` と確定値を格納します。
+
+実行中の記録（`busy: true`）があるにもかかわらず待機情報がない場合、キャッシュの不整合として関数を再実行せず `InconsistentCacheError` を同期的に投げます。`code` は `ERR_CALL_FN_ONCE_INCONSISTENT_CACHE` です。
+
+同一 `Map` の同一キーは、コールバック関数の同期的な実行中に再び呼び出せません。再入した呼び出しは `ReentrantCallError`（`code: ERR_CALL_FN_ONCE_REENTRANT_CALL`）を同期的に投げます。解決待ちの `Promise` を後から共有する呼び出しは対象外です。この制限は 3 つの関数に共通し、関数をまたいだ再入も対象です。詳しくはエラー処理の基本方針を見てください。
+
+```ts
+import { callFnOnce } from "call-fn-once";
+
+const cacheMap: callFnOnce.CacheMap = new Map();
+
+callFnOnce(cacheMap, "key", () => {
+  return callFnOnce(cacheMap, "key", () => "inner"); // ReentrantCallError を投げる
+});
+```
+
+シングルスレッドでも、外側の結果がまだキャッシュされていないため、内側の呼び出しは無限再帰になります。避けるにはキーを分けてください。
+
+`InconsistentCacheError` と `ReentrantCallError` は `instanceof` と `code` のどちらでも判定できます。メッセージの文言による一致判定は推奨しません。
+
+```ts errors.ts
+import { callAbortableFnOnce, InconsistentCacheError, ReentrantCallError } from "call-fn-once";
+
+const cacheMap: callAbortableFnOnce.CacheMap = new Map();
+
+try {
+  callAbortableFnOnce(cacheMap, "key", () => "ok");
+} catch (error: unknown) {
+  if (error instanceof InconsistentCacheError || error instanceof ReentrantCallError) {
+    // キャッシュ不整合または同一キーでの同期的な再呼び出しです。
+  }
+
+  if ((error as { code?: unknown }).code === "ERR_CALL_FN_ONCE_INCONSISTENT_CACHE") {
+    // キャッシュが不整合な状態です。直接操作を見直してください。
+  }
+
+  if ((error as { code?: unknown }).code === "ERR_CALL_FN_ONCE_REENTRANT_CALL") {
+    // 同一キーでの同期的な再呼び出しです。キーを分けてください。
+  }
+}
+```
 
 ## 関連ページ [#related]
 

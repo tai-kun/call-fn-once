@@ -36,6 +36,7 @@ const result = callFnOnce({
 - 同期例外が投げられた場合はキャッシュしません。次回呼び出しで再実行されます。
 - キーごとに独立してキャッシュします。
 - `CacheMap` ごとに独立します。用途が異なる場合は `Map` を分けてください。
+- 同一 `Map` の同一キーは、コールバック関数の同期的な実行中に再び呼び出せません。再入は `ReentrantCallError` を同期的に投げます。避けるにはキーを分けてください。詳しくはエラー処理を見てください。
 
 ```ts
 import { callFnOnce } from "call-fn-once";
@@ -70,7 +71,8 @@ console.log(callCount);
     cacheMap: {
       type: "callFnOnce.CacheMap",
       required: true,
-      description: "実行結果を保持する Map オブジェクトです。任意の値をキー、計算結果を値として保持します。",
+      description:
+        "実行結果を保持する Map オブジェクトです。任意の値をキー、計算結果を値として保持します。",
     },
     key: {
       type: "unknown",

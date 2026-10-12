@@ -8,6 +8,22 @@ description: 同期例外と非同期拒否が発生した場合のキャッシ�
 - 成功した結果だけをキャッシュします。
 - 失敗した場合はキャッシュしないため、次回呼び出しで再実行できます。
 - 呼び出し元の例外や拒否理由はそのまま伝えます。ラップしません。
+- 同一 `Map` の同一キーは、コールバック関数の同期的な実行中に再び呼び出せません。再入した呼び出しは `ReentrantCallError`（`code: ERR_CALL_FN_ONCE_REENTRANT_CALL`）を同期的に投げます。
+- この制限は `callFnOnce`、`callAsyncableFnOnce`、`callAbortableFnOnce` の 3 つの関数に共通し、関数をまたいだ再入も対象です。解決待ちの共有のために後から参加する呼び出しは許可します。
+- 再帰的な計算を共有したい場合は、キーを分けてください。
+- `InconsistentCacheError` と `ReentrantCallError` は `instanceof` と `code` のどちらでも判定できます。メッセージの文言による一致判定は推奨しません。
+
+```ts
+import { callFnOnce } from "call-fn-once";
+
+const cacheMap: callFnOnce.CacheMap = new Map();
+
+callFnOnce(cacheMap, "key", () => {
+  return callFnOnce(cacheMap, "key", () => "inner"); // ReentrantCallError を投げる
+});
+```
+
+シングルスレッドでも、外側の結果がまだキャッシュされていないため、内側の呼び出しは無限再帰になります。この無限再帰を防ぐため、仕様として同期的に `ReentrantCallError` を投げます。
 
 ## 同期例外 [#sync-errors]
 

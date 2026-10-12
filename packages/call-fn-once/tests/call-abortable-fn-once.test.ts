@@ -1,6 +1,7 @@
 import { describe, expectTypeOf, test } from "vitest";
 
 import { callAbortableFnOnce } from "../src/call-abortable-fn-once.js";
+import { InconsistentCacheError, ReentrantCallError } from "../src/errors.js";
 import { captureThrow, createDeferred } from "./_helpers.js";
 
 describe("callAbortableFnOnce", () => {
@@ -159,7 +160,7 @@ describe("callAbortableFnOnce", () => {
   });
 
   describe("中断", () => {
-    test("一部の呼び出し元の中断では内部処理を中断しない", async ({ expect }) => {
+    test("一部の呼び出し元の中断では内部処理を継続する", async ({ expect }) => {
       // 準備
       const cacheMap: callAbortableFnOnce.CacheMap = new Map();
       const deferred = createDeferred<string>();
@@ -205,7 +206,7 @@ describe("callAbortableFnOnce", () => {
       expect(innerSignal?.aborted).toBe(false);
     });
 
-    test("すべての呼び出し元が中断したら、内部処理を中断する", async ({ expect }) => {
+    test("すべての呼び出し元が中断した場合は内部処理を中断する", async ({ expect }) => {
       // 準備
       const cacheMap: callAbortableFnOnce.CacheMap = new Map();
       const deferred = createDeferred<string>();
@@ -242,7 +243,7 @@ describe("callAbortableFnOnce", () => {
       expect(callCount).toBe(2);
     });
 
-    test("待機中の呼び出し元がすべて中断するまで、内部処理を中断しない", async ({ expect }) => {
+    test("すべての待機者が中断するまで内部処理を継続する", async ({ expect }) => {
       // 準備
       const cacheMap: callAbortableFnOnce.CacheMap = new Map();
       const deferred = createDeferred<string>();
@@ -278,7 +279,7 @@ describe("callAbortableFnOnce", () => {
       expect(innerSignal?.aborted).toBe(true);
     });
 
-    test("シグナルなしの呼び出しがある限り、内部処理を中断しない", async ({ expect }) => {
+    test("シグナルなしの呼び出しがある限り内部処理を継続する", async ({ expect }) => {
       // 準備
       const cacheMap: callAbortableFnOnce.CacheMap = new Map();
       const deferred = createDeferred<string>();
@@ -320,7 +321,7 @@ describe("callAbortableFnOnce", () => {
   });
 
   describe("確定後のキャッシュ", () => {
-    test("完了後のキャッシュは関数を実行せず、値を返す", ({ expect, signal }) => {
+    test("完了後のキャッシュは関数を実行せず、値を返す", ({ expect }) => {
       // 準備
       const cacheMap: callAbortableFnOnce.CacheMap = new Map();
       let callCount = 0;
@@ -331,23 +332,18 @@ describe("callAbortableFnOnce", () => {
       });
 
       // 実行
-      const result = callAbortableFnOnce(
-        cacheMap,
-        "key",
-        () => {
-          callCount += 1;
+      const result = callAbortableFnOnce(cacheMap, "key", () => {
+        callCount += 1;
 
-          return "unexpected";
-        },
-        signal,
-      );
+        return "unexpected";
+      });
 
       // 検証
       expect(result).toBe("cached");
       expect(callCount).toBe(1);
     });
 
-    test("完了済みでも中断済みシグナルでは投げる", ({ expect }) => {
+    test("確定済みキャッシュでも中断済みシグナルでは投げる", ({ expect }) => {
       // 準備
       const cacheMap: callAbortableFnOnce.CacheMap = new Map();
       const reason = new Error("aborted-after-done");
@@ -438,6 +434,302 @@ describe("callAbortableFnOnce", () => {
       // 検証
       await expect(pending).rejects.toBe(reason);
       expect(innerSignal?.aborted).toBe(true);
+    });
+  });
+
+  describe("世代管理", () => {
+    test("一部の待機者が中断しても残りの待機者と確定値を保つ", async ({ expect }) => {
+      // 準備
+      const cacheMap: callAbortableFnOnce.CacheMap = new Map();
+      const deferred = createDeferred<string>();
+      const reason = new Error("abort-partial");
+      const firstController = new AbortController();
+      const secondController = new AbortController();
+      let callCount = 0;
+      const first = Promise.resolve(
+        callAbortableFnOnce(
+          cacheMap,
+          "key",
+          () => {
+            callCount += 1;
+
+            return deferred.promise;
+          },
+          firstController.signal,
+        ),
+      );
+      const second = Promise.resolve(
+        callAbortableFnOnce(
+          cacheMap,
+          "key",
+          () => {
+            callCount += 1;
+
+            return deferred.promise;
+          },
+          secondController.signal,
+        ),
+      );
+
+      // 実行
+      firstController.abort(reason);
+      await expect(first).rejects.toBe(reason);
+      deferred.resolve("ok");
+
+      // 検証
+      await expect(second).resolves.toBe("ok");
+      expect(callCount).toBe(1);
+      const cached = callAbortableFnOnce(cacheMap, "key", () => "unexpected");
+      expect(cached).toBe("ok");
+      expect(callCount).toBe(1);
+    });
+
+    test("全員中断後の遅延解決で新世代を上書きしない", async ({ expect }) => {
+      // 準備
+      const cacheMap: callAbortableFnOnce.CacheMap = new Map();
+      const oldDeferred = createDeferred<string>();
+      const newDeferred = createDeferred<string>();
+      const reason = new Error("abort-old");
+      const controller = new AbortController();
+      let callCount = 0;
+      const oldWrapped = Promise.resolve(
+        callAbortableFnOnce(
+          cacheMap,
+          "key",
+          () => {
+            callCount += 1;
+
+            return oldDeferred.promise;
+          },
+          controller.signal,
+        ),
+      );
+      const oldInner = (cacheMap.get("key") as { busy: true; value: Promise<string> }).value;
+      void oldInner.then(
+        () => {},
+        () => {},
+      );
+
+      // 実行
+      controller.abort(reason);
+      await expect(oldWrapped).rejects.toBe(reason);
+      const newWrapped = Promise.resolve(
+        callAbortableFnOnce(cacheMap, "key", () => {
+          callCount += 1;
+
+          return newDeferred.promise;
+        }),
+      );
+      oldDeferred.resolve("stale");
+      await expect(oldInner).resolves.toBe("stale");
+      newDeferred.resolve("fresh");
+
+      // 検証
+      await expect(newWrapped).resolves.toBe("fresh");
+      expect(callCount).toBe(2);
+      const cached = callAbortableFnOnce(cacheMap, "key", () => "unexpected");
+      expect(cached).toBe("fresh");
+      expect(callCount).toBe(2);
+    });
+
+    test("全員中断後の遅延拒否で新世代に影響しない", async ({ expect }) => {
+      // 準備
+      const cacheMap: callAbortableFnOnce.CacheMap = new Map();
+      const oldDeferred = createDeferred<string>();
+      const newDeferred = createDeferred<string>();
+      const abortReason = new Error("abort-old");
+      const oldFailure = new Error("old-failure");
+      const controller = new AbortController();
+      let callCount = 0;
+      const oldWrapped = Promise.resolve(
+        callAbortableFnOnce(
+          cacheMap,
+          "key",
+          () => {
+            callCount += 1;
+
+            return oldDeferred.promise;
+          },
+          controller.signal,
+        ),
+      );
+      const oldInner = (cacheMap.get("key") as { busy: true; value: Promise<string> }).value;
+      void oldInner.then(
+        () => {},
+        () => {},
+      );
+
+      // 実行
+      controller.abort(abortReason);
+      await expect(oldWrapped).rejects.toBe(abortReason);
+      const newWrapped = Promise.resolve(
+        callAbortableFnOnce(cacheMap, "key", () => {
+          callCount += 1;
+
+          return newDeferred.promise;
+        }),
+      );
+      oldDeferred.reject(oldFailure);
+      await expect(oldInner).rejects.toBe(oldFailure);
+      newDeferred.resolve("fresh");
+
+      // 検証
+      await expect(newWrapped).resolves.toBe("fresh");
+      expect(callCount).toBe(2);
+      const cached = callAbortableFnOnce(cacheMap, "key", () => "unexpected");
+      expect(cached).toBe("fresh");
+      expect(callCount).toBe(2);
+    });
+
+    test("確定済みキャッシュの読み取りは残った状態を削除して値を返す", async ({ expect }) => {
+      // 準備
+      const cacheMap: callAbortableFnOnce.CacheMap = new Map();
+      const deferred = createDeferred<string>();
+      let callCount = 0;
+      const pending = Promise.resolve(
+        callAbortableFnOnce(cacheMap, "key", () => {
+          callCount += 1;
+
+          return deferred.promise;
+        }),
+      );
+      cacheMap.set("key", { busy: false, value: "manual" });
+
+      // 実行
+      const first = callAbortableFnOnce(cacheMap, "key", () => {
+        callCount += 1;
+
+        return "unexpected";
+      });
+      deferred.resolve("stale");
+      await expect(pending).resolves.toBe("stale");
+
+      // 検証
+      expect(first).toBe("manual");
+      const second = callAbortableFnOnce(cacheMap, "key", () => {
+        callCount += 1;
+
+        return "unexpected";
+      });
+      expect(second).toBe("manual");
+      expect(callCount).toBe(1);
+    });
+  });
+
+  describe("不整合キャッシュ", () => {
+    test("待機情報がない実行中キャッシュでは再実行せず投げる", ({ expect }) => {
+      // 準備
+      const cacheMap: callAbortableFnOnce.CacheMap = new Map();
+      cacheMap.set("key", { busy: true, value: Promise.resolve("x") });
+      let callCount = 0;
+
+      // 実行
+      const caught = captureThrow(() => {
+        callAbortableFnOnce(cacheMap, "key", () => {
+          callCount += 1;
+
+          return "unexpected";
+        });
+      });
+
+      // 検証
+      expect(caught).toBeInstanceOf(InconsistentCacheError);
+      expect((caught as InconsistentCacheError).code).toBe("ERR_CALL_FN_ONCE_INCONSISTENT_CACHE");
+      expect(callCount).toBe(0);
+    });
+
+    test("手動で設定した確定値はそのまま返す", ({ expect }) => {
+      // 準備
+      const cacheMap: callAbortableFnOnce.CacheMap = new Map();
+      cacheMap.set("key", { busy: false, value: "manual" });
+      let callCount = 0;
+
+      // 実行
+      const result = callAbortableFnOnce(cacheMap, "key", () => {
+        callCount += 1;
+
+        return "unexpected";
+      });
+
+      // 検証
+      expect(result).toBe("manual");
+      expect(callCount).toBe(0);
+    });
+  });
+
+  describe("再入", () => {
+    test("同期値の実行中に同一キーを呼ぶと投げて再実行できる", ({ expect }) => {
+      // 準備
+      const cacheMap: callAbortableFnOnce.CacheMap = new Map();
+      let callCount = 0;
+
+      // 実行
+      const caught = captureThrow(() => {
+        callAbortableFnOnce(cacheMap, "key", () => {
+          callCount += 1;
+          callAbortableFnOnce(cacheMap, "key", () => "inner");
+
+          return "outer";
+        });
+      });
+
+      // 検証
+      expect(caught).toBeInstanceOf(ReentrantCallError);
+      expect((caught as ReentrantCallError).code).toBe("ERR_CALL_FN_ONCE_REENTRANT_CALL");
+      expect(callCount).toBe(1);
+      const retried = callAbortableFnOnce(cacheMap, "key", () => {
+        callCount += 1;
+
+        return "recovered";
+      });
+      expect(retried).toBe("recovered");
+      expect(callCount).toBe(2);
+    });
+
+    test("非同期値を返す前の同一キー呼び出しは投げて再実行できる", async ({ expect }) => {
+      // 準備
+      const cacheMap: callAbortableFnOnce.CacheMap = new Map();
+      const deferred = createDeferred<string>();
+      let callCount = 0;
+
+      // 実行
+      const caught = captureThrow(() => {
+        void callAbortableFnOnce(cacheMap, "key", () => {
+          callCount += 1;
+          callAbortableFnOnce(cacheMap, "key", () => "inner");
+
+          return deferred.promise;
+        });
+      });
+      deferred.resolve("unused");
+
+      // 検証
+      expect(caught).toBeInstanceOf(ReentrantCallError);
+      expect(callCount).toBe(1);
+      const retried = Promise.resolve(
+        callAbortableFnOnce(cacheMap, "key", () => {
+          callCount += 1;
+
+          return Promise.resolve("recovered");
+        }),
+      );
+      await expect(retried).resolves.toBe("recovered");
+      expect(callCount).toBe(2);
+    });
+
+    test("異なるキーでの再入は許可する", ({ expect }) => {
+      // 準備
+      const cacheMap: callAbortableFnOnce.CacheMap = new Map();
+
+      // 実行
+      const result = callAbortableFnOnce(cacheMap, "a", () => {
+        const inner = callAbortableFnOnce(cacheMap, "b", () => "B");
+
+        return `A:${inner}`;
+      });
+
+      // 検証
+      expect(result).toBe("A:B");
     });
   });
 

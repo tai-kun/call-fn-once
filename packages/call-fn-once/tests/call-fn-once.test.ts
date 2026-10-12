@@ -1,6 +1,8 @@
 import { describe, expectTypeOf, test } from "vitest";
 
+import { callAsyncableFnOnce } from "../src/call-asyncable-fn-once.js";
 import { callFnOnce } from "../src/call-fn-once.js";
+import { ReentrantCallError } from "../src/errors.js";
 import { captureThrow } from "./_helpers.js";
 
 describe("callFnOnce", () => {
@@ -189,6 +191,78 @@ describe("callFnOnce", () => {
     // 検証
     expect(result).toBe("first");
     expect(callCount).toBe(1);
+  });
+
+  describe("再入", () => {
+    test("同一キーでの同期的な再呼び出しは投げて再実行できる", ({ expect }) => {
+      // 準備
+      const cacheMap: callFnOnce.CacheMap = new Map();
+      let callCount = 0;
+
+      // 実行
+      const caught = captureThrow(() => {
+        callFnOnce(cacheMap, "key", () => {
+          callCount += 1;
+          callFnOnce(cacheMap, "key", () => "inner");
+
+          return "outer";
+        });
+      });
+
+      // 検証
+      expect(caught).toBeInstanceOf(ReentrantCallError);
+      expect((caught as ReentrantCallError).code).toBe("ERR_CALL_FN_ONCE_REENTRANT_CALL");
+      expect(callCount).toBe(1);
+      const retried = callFnOnce(cacheMap, "key", () => {
+        callCount += 1;
+
+        return "recovered";
+      });
+      expect(retried).toBe("recovered");
+      expect(callCount).toBe(2);
+    });
+
+    test("異なるキーでの再入は許可する", ({ expect }) => {
+      // 準備
+      const cacheMap: callFnOnce.CacheMap = new Map();
+
+      // 実行
+      const result = callFnOnce(cacheMap, "a", () => {
+        const inner = callFnOnce(cacheMap, "b", () => "B");
+
+        return `A:${inner}`;
+      });
+
+      // 検証
+      expect(result).toBe("A:B");
+    });
+
+    test("関数をまたいだ同一キーでの再入は投げる", ({ expect }) => {
+      // 準備
+      const cacheMap = new Map<unknown, any>();
+      let callCount = 0;
+
+      // 実行
+      const caught = captureThrow(() => {
+        callFnOnce(cacheMap, "key", () => {
+          callCount += 1;
+          callAsyncableFnOnce(cacheMap, "key", () => "inner");
+
+          return "outer";
+        });
+      });
+
+      // 検証
+      expect(caught).toBeInstanceOf(ReentrantCallError);
+      expect(callCount).toBe(1);
+      const retried = callFnOnce(cacheMap, "key", () => {
+        callCount += 1;
+
+        return "recovered";
+      });
+      expect(retried).toBe("recovered");
+      expect(callCount).toBe(2);
+    });
   });
 
   test("返り値の型が入力の型と一致する", () => {
