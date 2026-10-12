@@ -1,52 +1,18 @@
 {
-  "name": "call-fn-once",
+  "name": "call-fn-once-monorepo",
   "version": "0.0.0",
-  "description": "",
-  "homepage": "https://github.com/tai-kun/call-fn-once",
-  "license": "MIT",
-  "author": "tai-kun",
-  "repository": {
-    "url": "https://github.com/tai-kun/call-fn-once"
-  },
-  "files": [
-    "dist",
-    "src",
-    "package.json",
-    "LICENSE",
-    "README.md",
-    "README.en.md"
+  "private": true,
+  "workspaces": [
+    "packages/call-fn-once",
+    "website"
   ],
   "type": "module",
-  "sideEffects": false,
-  "main": "./dist/src/index.js",
-  "types": "./dist/src/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/src/index.d.ts",
-      "default": "./dist/src/index.js"
-    }
-  },
-  "scripts": {
-    "build": "tsc --project ./.config/tsconfig.build.json"
-  },
-  "dependencies": {
-    "abort-signal-utils": "^0.0.2",
-    "maypromise": "^0.0.4"
-  },
   "devDependencies": {
-    "@tsconfig/node24": "^24.0.4",
-    "@tsconfig/strictest": "^2.0.8",
-    "@types/node": "^24.12.4",
-    "@vitest/browser": "^4.1.6",
-    "@vitest/browser-playwright": "^4.1.6",
-    "npm-check-updates": "^22.2.0",
-    "oxfmt": "0.45.0",
-    "oxlint": "1.60.0",
-    "oxlint-tsgolint": "0.21.1",
-    "playwright": "^1.60.0",
-    "typescript": "^6.0.3",
-    "vite": "^8.0.12",
-    "vitest": "^4.1.6"
-  },
-  "readme": "README.md"
+    "npm-check-updates": "23.1.0",
+    "oxfmt": "0.71.0",
+    "oxlint": "1.86.0",
+    "oxlint-tsgolint": "7.0.2003",
+    "skills": "1.7.0",
+    "typescript": "7.0.2"
+  }
 }

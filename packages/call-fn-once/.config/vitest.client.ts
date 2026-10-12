@@ -1,7 +1,7 @@
 import { playwright } from "@vitest/browser-playwright";
 import { defineConfig } from "vitest/config";
 
-import isDebugMode from "./_is-debug-mode";
+import isDebugMode from "./_is-debug-mode.js";
 
 export default defineConfig({
   oxc: {
@@ -21,5 +21,12 @@ export default defineConfig({
       headless: true,
       instances: [{ browser: "chromium" }, { browser: "firefox" }, { browser: "webkit" }],
     },
+    coverage: {
+      provider: "istanbul",
+      reporter: ["text", "json-summary", "html"],
+      include: ["src/**/*.ts"],
+      reportsDirectory: "./coverage/client",
+    },
+    setupFiles: [".config/_debugging.ts"],
   },
 });
