@@ -72,6 +72,38 @@ callFnOnce(requestMap, request, () => "per-request value");
 
 Sharing a `Map` at module scope reuses it across the app. In tests or per-request code, create a fresh `Map` to avoid interfering with other runs.
 
+### Never share across functions [#no-sharing-across-functions]
+
+Never reuse the same `CacheMap` across `callFnOnce`, `callAsyncableFnOnce`, and `callAbortableFnOnce`. Create a fresh `Map` per function. It may appear to work while keys never collide, but a future key collision breaks reads, so splitting by key is not a workaround.
+
+Each function stores records in a different internal shape. In particular, `callAbortableFnOnce` stores `{ busy, value }` wrappers, so sharing a `Map` with another function silently returns a corrupted value that is neither the cached value nor a fresh one. The types cannot catch this because everything is passable via `Map<unknown, any>`.
+
+:::danger[Sharing across functions is forbidden]
+Never pass the same `Map` to more than one function. Use a separate `Map` per function.
+:::
+
+```ts bad-share.ts
+import { callAbortableFnOnce, callFnOnce } from "call-fn-once";
+
+// Never reuse the same Map.
+const cacheMap = new Map();
+
+callFnOnce(cacheMap, "key", () => "hello");
+// Returns undefined, which is neither "hello" nor "world".
+callAbortableFnOnce(cacheMap, "key", () => "world");
+```
+
+```ts good-share.ts
+import { callAbortableFnOnce, callFnOnce } from "call-fn-once";
+
+// Use a separate Map per function.
+const syncMap: callFnOnce.CacheMap = new Map();
+const abortableMap: callAbortableFnOnce.CacheMap = new Map();
+
+callFnOnce(syncMap, "key", () => "hello");
+callAbortableFnOnce(abortableMap, "key", () => "world");
+```
+
 ## Memory [#memory]
 
 - Drop caches you no longer need with `cacheMap.delete(key)`.

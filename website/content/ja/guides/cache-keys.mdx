@@ -72,6 +72,38 @@ callFnOnce(requestMap, request, () => "per-request value");
 
 モジュール直下で `Map` を共有すると、アプリ全体で再利用できます。テストやリクエスト単位では、新しい `Map` を作成すればほかの実行と干渉しません。
 
+### 関数間での共有禁止 [#no-sharing-across-functions]
+
+`callFnOnce`、`callAsyncableFnOnce`、`callAbortableFnOnce` で同じ `CacheMap` を使い回さないでください。関数ごとに新しい `Map` を作成してください。キーが重ならなければ壊れませんが、将来のキーの衝突で壊れるため、キー分けでの回避もできません。
+
+内部の記録形式が関数ごとに異なります。特に `callAbortableFnOnce` は `{ busy, value }` 形式のラッパーを格納するため、ほかの関数と `Map` を共有すると、キャッシュ値でも新規実行値でもない壊れた値が黙って返ります。型上は `Map<unknown, any>` 経由で渡せてしまうため、コンパイル時にも検出できません。
+
+:::danger[関数間での共有は禁止]
+同じ `Map` を複数の関数に渡さないでください。関数ごとに `Map` を分けてください。
+:::
+
+```ts bad-share.ts
+import { callAbortableFnOnce, callFnOnce } from "call-fn-once";
+
+// 同じ Map を使い回してはいけません。
+const cacheMap = new Map();
+
+callFnOnce(cacheMap, "key", () => "hello");
+// "hello" でも "world" でもない undefined が返ります。
+callAbortableFnOnce(cacheMap, "key", () => "world");
+```
+
+```ts good-share.ts
+import { callAbortableFnOnce, callFnOnce } from "call-fn-once";
+
+// 関数ごとに Map を分けます。
+const syncMap: callFnOnce.CacheMap = new Map();
+const abortableMap: callAbortableFnOnce.CacheMap = new Map();
+
+callFnOnce(syncMap, "key", () => "hello");
+callAbortableFnOnce(abortableMap, "key", () => "world");
+```
+
 ## メモリー管理 [#memory]
 
 - 不要になったキャッシュは `cacheMap.delete(key)` で破棄できます。
