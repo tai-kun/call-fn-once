@@ -1,52 +1,40 @@
 /**
- * `callFnOnce` 関数に関する型定義をまとめた名前空間です。
+ * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-fn-once#types)
  */
 export namespace callFnOnce {
   /**
-   * 実行結果を保持する Map の型定義です。
-   *
-   * 任意の値をキーとして、計算結果を値として保持します。
+   * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-fn-once#types)
    */
   export type CacheMap = Map<unknown, any>;
 
   /**
-   * 関数の返り値の型です。
-   *
-   * @template T 返り値の型です。
+   * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-fn-once#types)
    */
   export type Return<T> = T;
 
   /**
-   * オブジェクト形式の引数の型定義です。
+   * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-fn-once#types)
    */
   export type Options<T> = {
     /**
-     * 実行結果を保持する Map オブジェクトです。
+     * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-fn-once#types)
      */
     cacheMap: CacheMap;
 
     /**
-     * キャッシュを識別する一意のキーです。
+     * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-fn-once#types)
      */
     key: unknown;
 
     /**
-     * 実行するコールバック関数です。
+     * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-fn-once#types)
      */
     fn: () => T;
   };
 }
 
 /**
- * 指定されたキーごとに、コールバック関数を一度だけ実行して結果をキャッシュします。
- *
- * 2 回目以降の呼び出しでは、再実行せずにキャッシュされた結果を返します。
- *
- * @template T コールバック関数が返す値の型です。
- * @param cacheMap 実行結果を保持する Map オブジェクトです。
- * @param key キャッシュを識別する一意のキーです。
- * @param fn 実行するコールバック関数です。
- * @returns キャッシュ済みの値、または今回の実行結果を返します。
+ * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-fn-once)
  */
 export function callFnOnce<T>(
   cacheMap: callFnOnce.CacheMap,
@@ -55,13 +43,7 @@ export function callFnOnce<T>(
 ): callFnOnce.Return<T>;
 
 /**
- * 指定されたキーごとに、コールバック関数を一度だけ実行して結果をキャッシュします。
- *
- * オブジェクト形式で引数を渡す場合のオーバーロードです。
- *
- * @template T コールバック関数が返す値の型です。
- * @param options 実行に必要な引数をまとめたオブジェクトです。
- * @returns キャッシュ済みの値、または今回の実行結果を返します。
+ * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-fn-once#usage)
  */
 export function callFnOnce<T>(options: callFnOnce.Options<T>): callFnOnce.Return<T>;
 

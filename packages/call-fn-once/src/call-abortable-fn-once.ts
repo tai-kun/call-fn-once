@@ -2,113 +2,99 @@ import { getAbortReason, throwIfAborted } from "abort-signal-utils";
 import { type Thenable, type MaybePromise, isThenable } from "maypromise";
 
 /**
- * `callAbortableFnOnce` 関数に関する型定義をまとめた名前空間です。
+ * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-abortable-fn-once#types)
  */
 export namespace callAbortableFnOnce {
   /**
-   * キャッシュの状態を表す型定義です。
-   *
-   * 実行中（busy: true）か完了済み（busy: false）かで、`value` の意味が異なります。
+   * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-abortable-fn-once#types)
    */
   export type Cache =
     | {
         /**
-         * 非同期処理が実行中かどうかを示すフラグです。
+         * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-abortable-fn-once#types)
          */
         readonly busy: true;
 
         /**
-         * 実行中の非同期処理を表す Promise オブジェクトです。
+         * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-abortable-fn-once#types)
          */
         readonly value: Promise<any>;
       }
     | {
         /**
-         * 処理が完了して結果が確定したことを示すフラグです。
+         * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-abortable-fn-once#types)
          */
         readonly busy: false;
 
         /**
-         * 確定した実行結果の値です。
+         * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-abortable-fn-once#types)
          */
         readonly value: any;
       };
 
   /**
-   * 実行結果を保持する Map の型定義です。
+   * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-abortable-fn-once#types)
    */
   export type CacheMap = Map<unknown, Cache>;
 
   /**
-   * {@link callAbortableFnOnce} が返す値の型を定義します。
-   *
-   * `T` が `then` メソッドを持つ型（Promise ライク）の場合、解決値を {@link MaybePromise} でラップした型です。
-   *
-   * @template T コールバック関数の返り値の型です。
+   * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-abortable-fn-once#types)
    */
   export type Return<T> = T extends Thenable ? MaybePromise<Awaited<T>> : T;
 
   /**
-   * オブジェクト形式の引数の型定義です。
+   * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-abortable-fn-once#types)
    */
   export type Options<T> = {
     /**
-     * 実行結果を保持する Map オブジェクトです。
+     * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-abortable-fn-once#types)
      */
     cacheMap: CacheMap;
 
     /**
-     * キャッシュを識別する一意のキーです。
+     * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-abortable-fn-once#types)
      */
     key: unknown;
 
     /**
-     * 実行するコールバック関数です。内部処理の中断用シグナルを引数に受け取ります。
+     * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-abortable-fn-once#types)
      */
     fn: (signal: AbortSignal) => T;
 
     /**
-     * 呼び出し元が渡す中断シグナルです。省略可能です。
+     * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-abortable-fn-once#types)
      */
     signal?: AbortSignal | undefined;
   };
 }
 
 /**
- * 実行中の非同期処理に紐づく内部状態の型定義です。
- *
- * 待機中の中断シグナルを保持します。すべてが中断されたら元の処理を中断します。
+ * [API Reference](https://tai-kun.github.io/call-fn-once/guides/abort-patterns#waiters)
  */
 type State = {
   /**
-   * コールバック関数に渡す内部処理の中断用 AbortController です。
+   * [API Reference](https://tai-kun.github.io/call-fn-once/guides/abort-patterns#waiters)
    */
   readonly ctrl: AbortController;
 
   /**
-   * 完了待ちの外部中断シグナルをすべて保持する集合です。
+   * [API Reference](https://tai-kun.github.io/call-fn-once/guides/abort-patterns#waiters)
    */
   readonly sigs: Set<AbortSignal>;
 };
 
 /**
- * キャッシュ用 Map ごとに実行状態を管理する WeakMap です。
- *
- * キャッシュ用 Map が破棄されると対応する状態も破棄されるため、メモリリークを防げます。
+ * [API Reference](https://tai-kun.github.io/call-fn-once/guides/cache-keys#memory)
  */
 const stateMapMap = /*#__PURE__*/ new WeakMap<callAbortableFnOnce.CacheMap, Map<unknown, State>>();
 
 /**
- * 中断要求のない呼び出しの代理として登録する、発火しないシグナルです。
- *
- * 待機シグナルが空になって内部処理が中断されるのを防ぎます。
+ * [API Reference](https://tai-kun.github.io/call-fn-once/guides/abort-patterns#without-signal)
  */
 const dummySignal = /*#__PURE__*/ new AbortController().signal;
 
 /**
- * キャッシュ用 Map に対応する内部状態の Map を取得します。
- *
- * 存在しない場合は作成して返します。
+ * [API Reference](https://tai-kun.github.io/call-fn-once/guides/cache-keys#memory)
  */
 function getOrCreateStateMap(cacheMap: callAbortableFnOnce.CacheMap): Map<unknown, State> {
   let stateMap = stateMapMap.get(cacheMap);
@@ -121,9 +107,7 @@ function getOrCreateStateMap(cacheMap: callAbortableFnOnce.CacheMap): Map<unknow
 }
 
 /**
- * Promise に外部中断シグナルの監視を追加します。
- *
- * 待機中のシグナルがすべて中断されたときだけ、内部処理を中断してキャッシュを破棄します。
+ * [API Reference](https://tai-kun.github.io/call-fn-once/guides/abort-patterns#waiters)
  */
 function attachAbort(
   promise: Promise<any>,
@@ -144,7 +128,7 @@ function attachAbort(
     }
 
     /**
-     * 外部シグナルの中断時に実行されるハンドラーです。
+     * [API Reference](https://tai-kun.github.io/call-fn-once/guides/abort-patterns#waiters)
      */
     const handleAbort = (): void => {
       state.sigs.delete(signal);
@@ -172,18 +156,7 @@ function attachAbort(
 }
 
 /**
- * 指定されたキーごとに、コールバック関数を一度だけ実行して結果をキャッシュします。
- *
- * 同期値と非同期値のどちらも受け付けます。非同期の場合は解決待ちの Promise を共有します。解決後はその値を再利用します。
- *
- * すべての呼び出し元が中断したときに限り、実行中のコールバック関数を中断します。
- *
- * @template T コールバック関数が返す値の型です。
- * @param cacheMap 実行結果を保持する Map オブジェクトです。
- * @param key キャッシュを識別する一意のキーです。
- * @param fn 実行するコールバック関数です。内部処理の中断用シグナルを引数に受け取ります。
- * @param signal 呼び出し元が渡す中断シグナルです。省略可能です。
- * @returns キャッシュ済みの値、または今回の実行結果を返します。
+ * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-abortable-fn-once)
  */
 export function callAbortableFnOnce<T>(
   cacheMap: callAbortableFnOnce.CacheMap,
@@ -193,13 +166,7 @@ export function callAbortableFnOnce<T>(
 ): callAbortableFnOnce.Return<T>;
 
 /**
- * 指定されたキーごとに、コールバック関数を一度だけ実行して結果をキャッシュします。
- *
- * オブジェクト形式で引数を渡す場合のオーバーロードです。
- *
- * @template T コールバック関数が返す値の型です。
- * @param options 実行に必要な引数をまとめたオブジェクトです。
- * @returns キャッシュ済みの値、または今回の実行結果を返します。
+ * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-abortable-fn-once#usage)
  */
 export function callAbortableFnOnce<T>(
   options: callAbortableFnOnce.Options<T>,
