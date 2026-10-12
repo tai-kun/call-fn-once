@@ -167,15 +167,14 @@ function attachAbort(
       state.sigs.delete(signal);
 
       // 待機者がいなくなったときだけ、内部処理を中断してキャッシュを破棄します。
-      if (state.sigs.size === 0) {
+      // 確定後などで世代が変わっていたら、古い中断で新世代に触らないようにします。
+      if (state.sigs.size === 0 && stateMap.get(key) === state) {
         state.ctrl.abort(getAbortReason(signal));
         cacheMap.delete(key);
         stateMap.delete(key);
       }
 
       reject(getAbortReason(signal));
-      // 以降の確定を無視するため、解決・拒否関数を無効化します。
-      resolve = reject = () => {};
     };
 
     signal.addEventListener("abort", handleAbort, { once: true });

@@ -374,6 +374,46 @@ describe("callAbortableFnOnce", () => {
       expect(caught).toBe(reason);
       expect(callCount).toBe(1);
     });
+
+    test("確定直後の遅延中断で確定キャッシュを維持する", async ({ expect }) => {
+      // 準備
+      const cacheMap: callAbortableFnOnce.CacheMap = new Map();
+      const controller = new AbortController();
+      let callCount = 0;
+      const first = Promise.resolve(
+        callAbortableFnOnce(
+          cacheMap,
+          "key",
+          () => {
+            callCount += 1;
+
+            return Promise.resolve("ok");
+          },
+          controller.signal,
+        ),
+      );
+      const inner = (cacheMap.get("key") as { busy: true; value: Promise<string> }).value;
+      // 確定処理と中断監視より後に登録されるため、監視解除より先に割り込んで発火する。
+      void inner.then(
+        () => {
+          controller.abort(new Error("late"));
+        },
+        () => {},
+      );
+
+      // 実行
+      await expect(first).resolves.toBe("ok");
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      const cached = callAbortableFnOnce(cacheMap, "key", () => {
+        callCount += 1;
+
+        return "unexpected";
+      });
+
+      // 検証
+      expect(cached).toBe("ok");
+      expect(callCount).toBe(1);
+    });
   });
 
   describe("オプション形式", () => {
