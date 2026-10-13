@@ -1,5 +1,17 @@
 # Changelog
 
+## call-fn-once@0.0.8
+
+### 新機能
+
+- CacheMapの所有権検査を追加し.codeを廃止 ([995efe4](https://github.com/tai-kun/call-fn-once/commit/995efe4eaca65936e643f8c88f5641a8f4763def))
+
+### リファクタリング
+
+- 整理 ([877ddbd](https://github.com/tai-kun/call-fn-once/commit/877ddbd5e8a7e9e8a89a2f375329910a9e837e06))
+
+**Full Changelog**: https://github.com/tai-kun/call-fn-once/compare/call-fn-once@0.0.7...call-fn-once@0.0.8
+
 ## call-fn-once@0.0.7
 
 ### 新機能
