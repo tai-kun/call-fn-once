@@ -1,6 +1,6 @@
 import { describe, expectTypeOf, test } from "vitest";
 
-import { callAbortableFnOnce } from "../src/call-abortable-fn-once.js";
+import callAbortableFnOnce from "../src/call-abortable-fn-once.js";
 import { InconsistentCacheError, ReentrantCallError } from "../src/errors.js";
 import { captureThrow, createCounter, createDeferred, delay, getBusyPromise } from "./_helpers.js";
 

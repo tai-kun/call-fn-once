@@ -1,7 +1,7 @@
 import { describe, test } from "vitest";
 
-import { callAbortableFnOnce } from "../src/call-abortable-fn-once.js";
-import { callFnOnce } from "../src/call-fn-once.js";
+import callAbortableFnOnce from "../src/call-abortable-fn-once.js";
+import callFnOnce from "../src/call-fn-once.js";
 import { createCounter } from "./_helpers.js";
 
 // 同一 `Map` を関数間で使い回すことはできません。

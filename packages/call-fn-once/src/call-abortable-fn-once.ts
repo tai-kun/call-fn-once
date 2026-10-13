@@ -7,7 +7,7 @@ import { InconsistentCacheError } from "./errors.js";
 /**
  * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-abortable-fn-once#types)
  */
-export namespace callAbortableFnOnce {
+namespace callAbortableFnOnce {
   /**
    * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-abortable-fn-once#types)
    */
@@ -202,7 +202,6 @@ function removeWaiterAndAbortIfLast(options: RemoveWaiterOptions): void {
   if (state.sigs.size !== 0) {
     return;
   }
-
   if (stateMap.get(key) !== state) {
     return;
   }
@@ -351,7 +350,7 @@ type SettleOptions = {
   /**
    * 世代を照合するための共有 Promise を指定します。
    */
-  innerPromise: Promise<any>;
+  promise: Promise<any>;
 };
 
 /**
@@ -360,46 +359,9 @@ type SettleOptions = {
  * 中断による世代交代や手動で確定済みに上書きしたときは `true` を返します。
  */
 function isStaleGeneration(options: SettleOptions): boolean {
-  const { key, state, cacheMap, stateMap, innerPromise } = options;
+  const { key, state, promise, cacheMap, stateMap } = options;
 
-  return stateMap.get(key) !== state || cacheMap.get(key)?.value !== innerPromise;
-}
-
-/**
- * 非同期成功を確定します。
- *
- * 古い世代の確定は無視します。
- */
-function settleSuccess(options: SettleOptions & { value: unknown }): any {
-  const { key, value, cacheMap, stateMap } = options;
-  if (isStaleGeneration(options)) {
-    return value;
-  }
-
-  cacheMap.set(key, {
-    busy: false,
-    value,
-  });
-  stateMap.delete(key);
-
-  return value;
-}
-
-/**
- * 非同期失敗を削除します。
- *
- * 古い世代の確定は無視します。
- */
-function settleFailure(options: SettleOptions & { reason: unknown }): never {
-  const { key, reason, cacheMap, stateMap } = options;
-  if (isStaleGeneration(options)) {
-    throw reason;
-  }
-
-  cacheMap.delete(key);
-  stateMap.delete(key);
-
-  throw reason;
+  return stateMap.get(key) !== state || cacheMap.get(key)?.value !== promise;
 }
 
 /**
@@ -438,35 +400,38 @@ type TrackPendingOptions = {
  * 解決後は解決値で確定し、拒否時は削除して次回再実行できるようにします。
  */
 function trackPending(options: TrackPendingOptions): Promise<any> {
-  const { stateMap, cacheMap, key, state, ret } = options;
-  let innerPromise!: Promise<any>;
-  innerPromise = Promise.resolve(ret).then(
-    (value) =>
-      settleSuccess({
-        key,
-        state,
-        value,
-        cacheMap,
-        stateMap,
-        innerPromise,
-      }),
-    (reason) =>
-      settleFailure({
-        key,
-        state,
-        reason,
-        cacheMap,
-        stateMap,
-        innerPromise,
-      }),
-  );
+  const { key, ret, state, cacheMap, stateMap } = options;
+  const promise = Promise.resolve(ret).then(
+    (value) => {
+      if (isStaleGeneration({ key, state, promise, cacheMap, stateMap })) {
+        return value;
+      }
 
+      cacheMap.set(key, {
+        busy: false,
+        value,
+      });
+      stateMap.delete(key);
+
+      return value;
+    },
+    (ex) => {
+      if (isStaleGeneration({ key, state, promise, cacheMap, stateMap })) {
+        throw ex;
+      }
+
+      cacheMap.delete(key);
+      stateMap.delete(key);
+
+      throw ex;
+    },
+  );
   cacheMap.set(key, {
     busy: true,
-    value: innerPromise,
+    value: promise,
   });
 
-  return innerPromise;
+  return promise;
 }
 
 /**
@@ -537,7 +502,7 @@ function normalizeArgs<T>(
 /**
  * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-abortable-fn-once)
  */
-export function callAbortableFnOnce<T>(
+function callAbortableFnOnce<T>(
   cacheMap: callAbortableFnOnce.CacheMap,
   key: unknown,
   fn: (signal: AbortSignal) => T,
@@ -547,11 +512,11 @@ export function callAbortableFnOnce<T>(
 /**
  * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-abortable-fn-once#usage)
  */
-export function callAbortableFnOnce<T>(
+function callAbortableFnOnce<T>(
   options: callAbortableFnOnce.Options<T>,
 ): callAbortableFnOnce.Return<T>;
 
-export function callAbortableFnOnce<T>(
+function callAbortableFnOnce<T>(
   ...args:
     | [options: callAbortableFnOnce.Options<T>]
     | [
@@ -648,3 +613,5 @@ export function callAbortableFnOnce<T>(
     return ret as callAbortableFnOnce.Return<T>;
   });
 }
+
+export default callAbortableFnOnce;

@@ -1,6 +1,6 @@
 import { describe, test } from "vitest";
 
-import { callAbortableFnOnce } from "../src/call-abortable-fn-once.js";
+import callAbortableFnOnce from "../src/call-abortable-fn-once.js";
 import { delay } from "./_helpers.js";
 
 // `process.on("unhandledRejection")` を使うため、ブラウザーでは実行できません。

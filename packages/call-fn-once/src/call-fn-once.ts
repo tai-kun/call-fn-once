@@ -3,7 +3,7 @@ import { withReentrancyGuard } from "./_reentrancy-guard.js";
 /**
  * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-fn-once#types)
  */
-export namespace callFnOnce {
+namespace callFnOnce {
   /**
    * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-fn-once#types)
    */
@@ -56,7 +56,7 @@ function normalizeArgs<T>(
 /**
  * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-fn-once)
  */
-export function callFnOnce<T>(
+function callFnOnce<T>(
   cacheMap: callFnOnce.CacheMap,
   key: unknown,
   fn: () => T,
@@ -65,9 +65,9 @@ export function callFnOnce<T>(
 /**
  * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-fn-once#usage)
  */
-export function callFnOnce<T>(options: callFnOnce.Options<T>): callFnOnce.Return<T>;
+function callFnOnce<T>(options: callFnOnce.Options<T>): callFnOnce.Return<T>;
 
-export function callFnOnce<T>(
+function callFnOnce<T>(
   ...args:
     | [options: callFnOnce.Options<T>]
     | [cacheMap: callFnOnce.CacheMap, key: unknown, fn: () => T]
@@ -87,3 +87,5 @@ export function callFnOnce<T>(
     return ret;
   });
 }
+
+export default callFnOnce;

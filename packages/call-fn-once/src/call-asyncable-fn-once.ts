@@ -5,7 +5,7 @@ import { withReentrancyGuard } from "./_reentrancy-guard.js";
 /**
  * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-asyncable-fn-once#types)
  */
-export namespace callAsyncableFnOnce {
+namespace callAsyncableFnOnce {
   /**
    * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-asyncable-fn-once#types)
    */
@@ -65,7 +65,7 @@ function sharePending(
   key: unknown,
   ret: Thenable,
 ): Promise<any> {
-  const innerPromise = Promise.resolve(ret).then(
+  const promise = Promise.resolve(ret).then(
     (val) => {
       cacheMap.set(key, val);
 
@@ -77,15 +77,15 @@ function sharePending(
       throw ex;
     },
   );
-  cacheMap.set(key, innerPromise);
+  cacheMap.set(key, promise);
 
-  return innerPromise;
+  return promise;
 }
 
 /**
  * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-asyncable-fn-once)
  */
-export function callAsyncableFnOnce<T>(
+function callAsyncableFnOnce<T>(
   cacheMap: callAsyncableFnOnce.CacheMap,
   key: unknown,
   fn: () => T,
@@ -94,11 +94,11 @@ export function callAsyncableFnOnce<T>(
 /**
  * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-asyncable-fn-once#usage)
  */
-export function callAsyncableFnOnce<T>(
+function callAsyncableFnOnce<T>(
   options: callAsyncableFnOnce.Options<T>,
 ): callAsyncableFnOnce.Return<T>;
 
-export function callAsyncableFnOnce<T>(
+function callAsyncableFnOnce<T>(
   ...args:
     | [options: callAsyncableFnOnce.Options<T>]
     | [cacheMap: callAsyncableFnOnce.CacheMap, key: unknown, fn: () => T]
@@ -124,3 +124,5 @@ export function callAsyncableFnOnce<T>(
     return ret as callAsyncableFnOnce.Return<T>;
   });
 }
+
+export default callAsyncableFnOnce;

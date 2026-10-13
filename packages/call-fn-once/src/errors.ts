@@ -1,6 +1,6 @@
-import { type ErrorMeta, type ErrorOptions, I18nErrorBase, setErrorMessage } from "i18n-error-base";
+import { type ErrorOptions, I18nErrorBase, setErrorMessage } from "i18n-error-base";
 
-export type { ErrorMeta, ErrorOptions };
+export type { ErrorOptions };
 export { setErrorMessage };
 
 /**

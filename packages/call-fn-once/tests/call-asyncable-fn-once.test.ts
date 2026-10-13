@@ -1,6 +1,6 @@
 import { describe, expectTypeOf, test } from "vitest";
 
-import { callAsyncableFnOnce } from "../src/call-asyncable-fn-once.js";
+import callAsyncableFnOnce from "../src/call-asyncable-fn-once.js";
 import { ReentrantCallError } from "../src/errors.js";
 import { captureThrow, createCounter, createDeferred } from "./_helpers.js";
 
