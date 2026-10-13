@@ -128,6 +128,8 @@ The return type is `callAbortableFnOnce.Return<T>`. When `T` is a thenable it wr
 
 Cached values are held as `callAbortableFnOnce.Cache`. Running entries store `busy: true` with a `Promise`, and settled entries store `busy: false` with the settled value.
 
+Using the same `CacheMap` from another function throws `MismatchedCacheMapError` synchronously, regardless of the key. Use a separate `Map` per function.
+
 ## Related pages [#related]
 
 <CardGroup cols={2}>

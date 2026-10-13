@@ -13,4 +13,5 @@ export {
   setErrorMessage,
   ReentrantCallError,
   InconsistentCacheError,
+  MismatchedCacheMapError,
 } from "./errors.js";

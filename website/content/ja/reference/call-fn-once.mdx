@@ -37,6 +37,7 @@ const result = callFnOnce({
 - キーごとに独立してキャッシュします。
 - `CacheMap` ごとに独立します。用途が異なる場合は `Map` を分けてください。
 - 同一 `Map` の同一キーは、コールバック関数の同期的な実行中に再び呼び出せません。再入は `ReentrantCallError` を同期的に投げます。避けるにはキーを分けてください。詳しくはエラー処理を見てください。
+- 別の関数で同じ `CacheMap` を使うと、キーによらず `MismatchedCacheMapError` を同期的に投げます。関数ごとに `Map` を分けてください。
 
 ```ts
 import { callFnOnce } from "call-fn-once";

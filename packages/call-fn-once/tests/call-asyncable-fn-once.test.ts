@@ -332,7 +332,6 @@ describe("callAsyncableFnOnce", () => {
 
       // 検証
       expect(caught).toBeInstanceOf(ReentrantCallError);
-      expect((caught as ReentrantCallError).code).toBe("ERR_CALL_FN_ONCE_REENTRANT_CALL");
       expect(counter.getCount()).toBe(1);
       const retried = callAsyncableFnOnce(cacheMap, "key", () => {
         counter.increment();

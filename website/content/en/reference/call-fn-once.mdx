@@ -36,6 +36,7 @@ const result = callFnOnce({
 - A sync exception is not cached. The next call runs the function again.
 - Caches are independent per key.
 - Caches are independent per `CacheMap`. Use a separate `Map` when the use cases differ.
+- Using the same `CacheMap` from another function throws `MismatchedCacheMapError` synchronously, regardless of the key. Use a separate `Map` per function.
 
 ```ts
 import { callFnOnce } from "call-fn-once";

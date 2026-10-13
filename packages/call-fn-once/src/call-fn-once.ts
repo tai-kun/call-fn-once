@@ -1,3 +1,4 @@
+import { assertCacheMapOwner } from "./_cache-map-owner.js";
 import { withReentrancyGuard } from "./_reentrancy-guard.js";
 
 /**
@@ -73,6 +74,9 @@ function callFnOnce<T>(
     | [cacheMap: callFnOnce.CacheMap, key: unknown, fn: () => T]
 ): callFnOnce.Return<T> {
   const { fn, key, cacheMap } = normalizeArgs(args);
+
+  // 別の関数と CacheMap を共有したときは投げます。
+  assertCacheMapOwner(cacheMap, callFnOnce);
 
   // `has()` で存在を確認するため、`undefined` の値も正しく扱えます。
   if (cacheMap.has(key)) {

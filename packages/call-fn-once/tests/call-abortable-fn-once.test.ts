@@ -792,7 +792,6 @@ describe("callAbortableFnOnce", () => {
 
       // 検証
       expect(caught).toBeInstanceOf(InconsistentCacheError);
-      expect((caught as InconsistentCacheError).code).toBe("ERR_CALL_FN_ONCE_INCONSISTENT_CACHE");
       expect(counter.getCount()).toBe(0);
     });
 
@@ -833,7 +832,6 @@ describe("callAbortableFnOnce", () => {
 
       // 検証
       expect(caught).toBeInstanceOf(ReentrantCallError);
-      expect((caught as ReentrantCallError).code).toBe("ERR_CALL_FN_ONCE_REENTRANT_CALL");
       expect(counter.getCount()).toBe(1);
       const retried = callAbortableFnOnce(cacheMap, "key", () => {
         counter.increment();

@@ -1,6 +1,7 @@
 import { getAbortReason, throwIfAborted } from "abort-signal-utils";
 import { type Thenable, type MaybePromise, isThenable } from "maypromise";
 
+import { assertCacheMapOwner } from "./_cache-map-owner.js";
 import { withReentrancyGuard } from "./_reentrancy-guard.js";
 import { InconsistentCacheError } from "./errors.js";
 
@@ -527,6 +528,9 @@ function callAbortableFnOnce<T>(
       ]
 ): callAbortableFnOnce.Return<T> {
   const { fn, key, signal, cacheMap } = normalizeArgs(args);
+
+  // 別の関数と CacheMap を共有したときは投げます。
+  assertCacheMapOwner(cacheMap, callAbortableFnOnce);
 
   // 中断済みのときは実行せずに即座に投げます。
   throwIfAborted(signal);

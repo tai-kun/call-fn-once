@@ -76,7 +76,7 @@ Sharing a `Map` at module scope reuses it across the app. In tests or per-reques
 
 Never reuse the same `CacheMap` across `callFnOnce`, `callAsyncableFnOnce`, and `callAbortableFnOnce`. Create a fresh `Map` per function. It may appear to work while keys never collide, but a future key collision breaks reads, so splitting by key is not a workaround.
 
-Each function stores records in a different internal shape. In particular, `callAbortableFnOnce` stores `{ busy, value }` wrappers, so sharing a `Map` with another function silently returns a corrupted value that is neither the cached value nor a fresh one. The types cannot catch this because everything is passable via `Map<unknown, any>`.
+Each function stores records in a different internal shape. In particular, `callAbortableFnOnce` stores `{ busy, value }` wrappers. The types cannot catch this because everything is passable via `Map<unknown, any>`. To prevent misuse at runtime, the first function to use a `CacheMap` registers its ownership, and any other function using the same `Map` throws `MismatchedCacheMapError` synchronously, regardless of the key.
 
 :::danger[Sharing across functions is forbidden]
 Never pass the same `Map` to more than one function. Use a separate `Map` per function.
@@ -89,7 +89,7 @@ import { callAbortableFnOnce, callFnOnce } from "call-fn-once";
 const cacheMap = new Map();
 
 callFnOnce(cacheMap, "key", () => "hello");
-// Returns undefined, which is neither "hello" nor "world".
+// Throws MismatchedCacheMapError.
 callAbortableFnOnce(cacheMap, "key", () => "world");
 ```
 
@@ -109,6 +109,7 @@ callAbortableFnOnce(abortableMap, "key", () => "world");
 - Drop caches you no longer need with `cacheMap.delete(key)`.
 - Discarding the `Map` itself discards the corresponding caches.
 - The internal state of `callAbortableFnOnce` is held in a `WeakMap`, so dropping the `CacheMap` drops it too.
+- Ownership registrations for `CacheMap`s are also held in a `WeakMap`, so dropping the `Map` drops them too.
 
 :::note
 In long-running apps, ever-growing keys increase memory usage. For short-lived use cases, use a separate `Map` and discard it when done.

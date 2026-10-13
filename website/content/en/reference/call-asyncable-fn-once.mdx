@@ -48,6 +48,7 @@ const pending = callAsyncableFnOnce({
 - After settlement, the cache is replaced with the settled value, and later calls return the value directly instead of a `Promise`.
 - On rejection the cache is discarded, so the next call can retry. Concurrent waiters all receive the rejection.
 - Non-`Promise` thenables are treated as async too.
+- Using the same `CacheMap` from another function throws `MismatchedCacheMapError` synchronously, regardless of the key. Use a separate `Map` per function.
 
 ```ts
 import { callAsyncableFnOnce } from "call-fn-once";

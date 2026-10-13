@@ -11,11 +11,8 @@ export class CallFnOnceError extends I18nErrorBase<undefined> {
     this.prototype.name = "CallFnOnceError";
   }
 
-  readonly code: "ERR_CALL_FN_ONCE_INCONSISTENT_CACHE" | "ERR_CALL_FN_ONCE_REENTRANT_CALL";
-
-  public constructor(message: string, code: CallFnOnceError["code"], options?: ErrorOptions) {
+  public constructor(message: string, options?: ErrorOptions) {
     super(message, options);
-    this.code = code;
   }
 }
 
@@ -27,15 +24,8 @@ export class InconsistentCacheError extends CallFnOnceError {
     this.prototype.name = "InconsistentCacheError";
   }
 
-  override readonly code: "ERR_CALL_FN_ONCE_INCONSISTENT_CACHE";
-
   public constructor(options?: ErrorOptions) {
-    super(
-      "Inconsistent cache state for the given key.",
-      "ERR_CALL_FN_ONCE_INCONSISTENT_CACHE",
-      options,
-    );
-    this.code = "ERR_CALL_FN_ONCE_INCONSISTENT_CACHE";
+    super("Inconsistent cache state for the given key.", options);
   }
 }
 
@@ -48,20 +38,35 @@ export class InconsistentCacheError extends CallFnOnceError {
 /**
  * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-abortable-fn-once#types)
  */
+export class MismatchedCacheMapError extends CallFnOnceError {
+  static {
+    this.prototype.name = "MismatchedCacheMapError";
+  }
+
+  public constructor(options?: ErrorOptions) {
+    super(
+      "CacheMap is already used by another function. Use a separate Map for each function.",
+      options,
+    );
+  }
+}
+
+/*#__PURE__*/ setErrorMessage(
+  MismatchedCacheMapError,
+  "この CacheMap は別の関数で既に使用されています。関数ごとに Map を分けてください。",
+  "ja",
+);
+
+/**
+ * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-abortable-fn-once#types)
+ */
 export class ReentrantCallError extends CallFnOnceError {
   static {
     this.prototype.name = "ReentrantCallError";
   }
 
-  override readonly code: "ERR_CALL_FN_ONCE_REENTRANT_CALL";
-
   public constructor(options?: ErrorOptions) {
-    super(
-      "Reentrant call with the same key is not allowed.",
-      "ERR_CALL_FN_ONCE_REENTRANT_CALL",
-      options,
-    );
-    this.code = "ERR_CALL_FN_ONCE_REENTRANT_CALL";
+    super("Reentrant call with the same key is not allowed.", options);
   }
 }
 

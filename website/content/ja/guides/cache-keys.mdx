@@ -76,7 +76,7 @@ callFnOnce(requestMap, request, () => "per-request value");
 
 `callFnOnce`、`callAsyncableFnOnce`、`callAbortableFnOnce` で同じ `CacheMap` を使い回さないでください。関数ごとに新しい `Map` を作成してください。キーが重ならなければ壊れませんが、将来のキーの衝突で壊れるため、キー分けでの回避もできません。
 
-内部の記録形式が関数ごとに異なります。特に `callAbortableFnOnce` は `{ busy, value }` 形式のラッパーを格納するため、ほかの関数と `Map` を共有すると、キャッシュ値でも新規実行値でもない壊れた値が黙って返ります。型上は `Map<unknown, any>` 経由で渡せてしまうため、コンパイル時にも検出できません。
+内部の記録形式が関数ごとに異なります。特に `callAbortableFnOnce` は `{ busy, value }` 形式のラッパーを格納します。型上は `Map<unknown, any>` 経由で渡せてしまうため、コンパイル時にも検出できません。実行時の誤用を防ぐため、最初に使った関数が `CacheMap` の所有権を登録し、別の関数が同じ `Map` を使うとキーによらず `MismatchedCacheMapError` を同期的に投げます。
 
 :::danger[関数間での共有は禁止]
 同じ `Map` を複数の関数に渡さないでください。関数ごとに `Map` を分けてください。
@@ -89,7 +89,7 @@ import { callAbortableFnOnce, callFnOnce } from "call-fn-once";
 const cacheMap = new Map();
 
 callFnOnce(cacheMap, "key", () => "hello");
-// "hello" でも "world" でもない undefined が返ります。
+// MismatchedCacheMapError を投げます。
 callAbortableFnOnce(cacheMap, "key", () => "world");
 ```
 
@@ -109,7 +109,8 @@ callAbortableFnOnce(abortableMap, "key", () => "world");
 - 不要になったキャッシュは `cacheMap.delete(key)` で破棄できます。
 - `Map` 自体を破棄すると、対応するキャッシュも破棄されます。
 - `callAbortableFnOnce` の内部状態は `WeakMap` で管理されるため、`CacheMap` を破棄すれば一緒に破棄されます。
-- `callAbortableFnOnce` の `CacheMap` に `busy: true` の記録を直接書き込むと不整合な状態になり、次回呼び出しでは関数を再実行せず `InconsistentCacheError`（`code: ERR_CALL_FN_ONCE_INCONSISTENT_CACHE`）を同期的に投げる場合があります。破棄目的の `cacheMap.delete(key)` は対象外です。
+- `CacheMap` の所有権の登録も `WeakMap` で保持されるため、`Map` を破棄すれば一緒に破棄されます。
+- `callAbortableFnOnce` の `CacheMap` に `busy: true` の記録を直接書き込むと不整合な状態になり、次回呼び出しでは関数を再実行せず `InconsistentCacheError` を同期的に投げる場合があります。破棄目的の `cacheMap.delete(key)` は対象外です。
 
 :::note
 長期稼働するアプリでは、キーが増え続けるとメモリー使用量も増えます。寿命の短い用途では `Map` を分けて、使い終わったら破棄してください。

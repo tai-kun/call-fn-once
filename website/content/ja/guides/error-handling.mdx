@@ -8,10 +8,11 @@ description: 同期例外と非同期拒否が発生した場合のキャッシ�
 - 成功した結果だけをキャッシュします。
 - 失敗した場合はキャッシュしないため、次回呼び出しで再実行できます。
 - 呼び出し元の例外や拒否理由はそのまま伝えます。ラップしません。
-- 同一 `Map` の同一キーは、コールバック関数の同期的な実行中に再び呼び出せません。再入した呼び出しは `ReentrantCallError`（`code: ERR_CALL_FN_ONCE_REENTRANT_CALL`）を同期的に投げます。
-- この制限は `callFnOnce`、`callAsyncableFnOnce`、`callAbortableFnOnce` の 3 つの関数に共通し、関数をまたいだ再入も対象です。解決待ちの共有のために後から参加する呼び出しは許可します。
+- 同一 `Map` の同一キーは、コールバック関数の同期的な実行中に再び呼び出せません。再入した呼び出しは `ReentrantCallError` を同期的に投げます。
+- この制限は `callFnOnce`、`callAsyncableFnOnce`、`callAbortableFnOnce` の 3 つの関数に共通します。解決待ちの共有のために後から参加する呼び出しは許可します。
+- 別の関数で同じ `CacheMap` を使うことはできません。最初に使った関数が所有権を登録し、別の関数が同じ `Map` を使うとキーによらず `MismatchedCacheMapError` を同期的に投げます。
 - 再帰的な計算を共有したい場合は、キーを分けてください。
-- `InconsistentCacheError` と `ReentrantCallError` は `instanceof` と `code` のどちらでも判定できます。メッセージの文言による一致判定は推奨しません。
+- `InconsistentCacheError`、`MismatchedCacheMapError`、`ReentrantCallError` は `instanceof` で判定できます。メッセージの文言による一致判定は推奨しません。
 
 ```ts
 import { callFnOnce } from "call-fn-once";

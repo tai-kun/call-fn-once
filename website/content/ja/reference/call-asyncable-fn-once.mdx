@@ -49,6 +49,7 @@ const pending = callAsyncableFnOnce({
 - 拒否時はキャッシュを破棄するため、次回の呼び出しで再実行できます。並行呼び出しの拒否は、待機中のすべての呼び出しに伝わります。
 - `Promise` 以外の Thenable も非同期として扱います。
 - 同一 `Map` の同一キーは、コールバック関数の同期的な実行中に再び呼び出せません。再入は `ReentrantCallError` を同期的に投げます。解決待ちの共有のために後から参加する呼び出しは対象外です。詳しくはエラー処理の基本方針を見てください。
+- 別の関数で同じ `CacheMap` を使うと、キーによらず `MismatchedCacheMapError` を同期的に投げます。関数ごとに `Map` を分けてください。
 
 ```ts
 import { callAsyncableFnOnce } from "call-fn-once";

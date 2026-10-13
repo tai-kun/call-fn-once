@@ -2,7 +2,7 @@ import { describe, expectTypeOf, test } from "vitest";
 
 import callAsyncableFnOnce from "../src/call-asyncable-fn-once.js";
 import callFnOnce from "../src/call-fn-once.js";
-import { ReentrantCallError } from "../src/errors.js";
+import { MismatchedCacheMapError, ReentrantCallError } from "../src/errors.js";
 import { captureThrow, createCounter } from "./_helpers.js";
 
 describe("callFnOnce", () => {
@@ -211,7 +211,6 @@ describe("callFnOnce", () => {
 
       // 検証
       expect(caught).toBeInstanceOf(ReentrantCallError);
-      expect((caught as ReentrantCallError).code).toBe("ERR_CALL_FN_ONCE_REENTRANT_CALL");
       expect(counter.getCount()).toBe(1);
       const retried = callFnOnce(cacheMap, "key", () => {
         counter.increment();
@@ -237,7 +236,7 @@ describe("callFnOnce", () => {
       expect(result).toBe("A:B");
     });
 
-    test("関数をまたいだ同一キーでの再入は投げる", ({ expect }) => {
+    test("別の関数で同じ CacheMap を使うと投げる", ({ expect }) => {
       // 準備
       const cacheMap = new Map<unknown, any>();
       const counter = createCounter();
@@ -253,7 +252,7 @@ describe("callFnOnce", () => {
       });
 
       // 検証
-      expect(caught).toBeInstanceOf(ReentrantCallError);
+      expect(caught).toBeInstanceOf(MismatchedCacheMapError);
       expect(counter.getCount()).toBe(1);
       const retried = callFnOnce(cacheMap, "key", () => {
         counter.increment();
