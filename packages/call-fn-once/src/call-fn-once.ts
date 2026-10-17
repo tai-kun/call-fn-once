@@ -22,21 +22,21 @@ namespace callFnOnce {
   /**
    * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-fn-once#types)
    */
-  export type Options<T> = {
+  export type Options<K, V> = {
     /**
      * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-fn-once#types)
      */
-    cacheMap: CacheMap;
+    cacheMap: CacheMap<K, V>;
 
     /**
      * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-fn-once#types)
      */
-    key: unknown;
+    key: NoInfer<K>;
 
     /**
      * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-fn-once#types)
      */
-    fn: () => T;
+    fn: () => NoInfer<V>;
   };
 }
 
@@ -44,11 +44,11 @@ namespace callFnOnce {
  * 位置引数とオプション形式を同一形状にそろえます。
  */
 // 3 関数で同形ですが Options 型が別物のため、あえて共通化せず複製しています。
-function normalizeArgs<T>(
+function normalizeArgs<K, V>(
   args:
-    | [options: callFnOnce.Options<T>]
-    | [cacheMap: callFnOnce.CacheMap, key: unknown, fn: () => T],
-): callFnOnce.Options<T> {
+    | [options: callFnOnce.Options<K, V>]
+    | [cacheMap: callFnOnce.CacheMap<K, V>, key: K, fn: () => V],
+): callFnOnce.Options<K, V> {
   if (args.length === 1) {
     return args[0];
   }
@@ -61,22 +61,22 @@ function normalizeArgs<T>(
 /**
  * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-fn-once)
  */
-function callFnOnce<T>(
-  cacheMap: callFnOnce.CacheMap,
-  key: unknown,
-  fn: () => T,
-): callFnOnce.Return<T>;
+function callFnOnce<K, V>(
+  cacheMap: callFnOnce.CacheMap<K, V>,
+  key: NoInfer<K>,
+  fn: () => NoInfer<V>,
+): callFnOnce.Return<V>;
 
 /**
  * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-fn-once#usage)
  */
-function callFnOnce<T>(options: callFnOnce.Options<T>): callFnOnce.Return<T>;
+function callFnOnce<K, V>(options: callFnOnce.Options<K, V>): callFnOnce.Return<V>;
 
-function callFnOnce<T>(
+function callFnOnce<K, V>(
   ...args:
-    | [options: callFnOnce.Options<T>]
-    | [cacheMap: callFnOnce.CacheMap, key: unknown, fn: () => T]
-): callFnOnce.Return<T> {
+    | [options: callFnOnce.Options<K, V>]
+    | [cacheMap: callFnOnce.CacheMap<K, V>, key: NoInfer<K>, fn: () => NoInfer<V>]
+): callFnOnce.Return<V> {
   const { fn, key, cacheMap } = normalizeArgs(args);
 
   // 別の関数と CacheMap を共有したときは投げます。

@@ -264,13 +264,16 @@ describe("callFnOnce", () => {
     });
   });
 
-  test("返り値の型が入力の型と一致する", () => {
+  test("返り値の型はコールバックにでなくキャッシュマップから推論される", () => {
     // 準備
-    const cacheMap: callFnOnce.CacheMap = new Map();
+    const cacheMap: callFnOnce.CacheMap<string, string | number> = new Map();
+    const undefinedCacheMap: callFnOnce.CacheMap<string, undefined> = new Map();
 
     // 実行と検証
-    expectTypeOf(callFnOnce(cacheMap, "key", () => 1)).toEqualTypeOf<number>();
-    expectTypeOf(callFnOnce(cacheMap, "key", () => undefined)).toEqualTypeOf<undefined>();
-    expectTypeOf(callFnOnce({ cacheMap, key: "key", fn: () => 1 })).toEqualTypeOf<number>();
+    expectTypeOf(callFnOnce(cacheMap, "key", () => 1)).toEqualTypeOf<string | number>();
+    expectTypeOf(callFnOnce(undefinedCacheMap, "key", () => undefined)).toEqualTypeOf<undefined>();
+    expectTypeOf(callFnOnce({ cacheMap, key: "key", fn: () => 1 })).toEqualTypeOf<
+      string | number
+    >();
   });
 });

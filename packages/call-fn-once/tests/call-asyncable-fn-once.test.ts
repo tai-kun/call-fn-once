@@ -389,17 +389,24 @@ describe("callAsyncableFnOnce", () => {
     });
   });
 
-  test("返り値の型が入力に応じて決まる", () => {
+  test("返り値の型はコールバックにでなくキャッシュマップから推論される", () => {
     // 準備
-    const cacheMap: callAsyncableFnOnce.CacheMap = new Map();
+    const syncCacheMap: callAsyncableFnOnce.CacheMap<string, string | number> = new Map();
+    const asyncCacheMap: callAsyncableFnOnce.CacheMap<string, Promise<string | number>> = new Map();
 
     // 実行と検証
-    expectTypeOf(callAsyncableFnOnce(cacheMap, "key", () => 1)).toEqualTypeOf<number>();
-    expectTypeOf(callAsyncableFnOnce(cacheMap, "key", () => Promise.resolve(1))).toEqualTypeOf<
-      number | Promise<number>
+    expectTypeOf(callAsyncableFnOnce(syncCacheMap, "key", () => 1)).toEqualTypeOf<
+      string | number
+    >();
+    expectTypeOf(callAsyncableFnOnce(asyncCacheMap, "key", () => Promise.resolve(1))).toEqualTypeOf<
+      string | number | Promise<string | number>
     >();
     expectTypeOf(
-      callAsyncableFnOnce({ cacheMap, key: "key", fn: () => Promise.resolve(1) }),
-    ).toEqualTypeOf<number | Promise<number>>();
+      callAsyncableFnOnce({
+        cacheMap: asyncCacheMap,
+        key: "key",
+        fn: () => Promise.resolve(1),
+      }),
+    ).toEqualTypeOf<string | number | Promise<string | number>>();
   });
 });

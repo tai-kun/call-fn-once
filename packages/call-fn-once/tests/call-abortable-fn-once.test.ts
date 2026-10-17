@@ -40,7 +40,7 @@ describe("callAbortableFnOnce", () => {
 
       // 実行
       const caught = captureThrow(() => {
-        callAbortableFnOnce(cacheMap, "key", () => {
+        callAbortableFnOnce(cacheMap, "key", (): unknown => {
           counter.increment();
           throw failure;
         });
@@ -889,17 +889,24 @@ describe("callAbortableFnOnce", () => {
     });
   });
 
-  test("返り値の型が入力に応じて決まる", () => {
+  test("返り値の型はコールバックにでなくキャッシュマップから推論される", () => {
     // 準備
-    const cacheMap: callAbortableFnOnce.CacheMap = new Map();
+    const syncCacheMap: callAbortableFnOnce.CacheMap<string, string | number> = new Map();
+    const asyncCacheMap: callAbortableFnOnce.CacheMap<string, Promise<string | number>> = new Map();
 
     // 実行と検証
-    expectTypeOf(callAbortableFnOnce(cacheMap, "key", () => 1)).toEqualTypeOf<number>();
-    expectTypeOf(callAbortableFnOnce(cacheMap, "key", () => Promise.resolve(1))).toEqualTypeOf<
-      number | Promise<number>
+    expectTypeOf(callAbortableFnOnce(syncCacheMap, "key", () => 1)).toEqualTypeOf<
+      string | number
+    >();
+    expectTypeOf(callAbortableFnOnce(asyncCacheMap, "key", () => Promise.resolve(1))).toEqualTypeOf<
+      string | number | Promise<string | number>
     >();
     expectTypeOf(
-      callAbortableFnOnce({ cacheMap, key: "key", fn: () => Promise.resolve(1) }),
-    ).toEqualTypeOf<number | Promise<number>>();
+      callAbortableFnOnce({
+        cacheMap: asyncCacheMap,
+        key: "key",
+        fn: () => Promise.resolve(1),
+      }),
+    ).toEqualTypeOf<string | number | Promise<string | number>>();
   });
 });

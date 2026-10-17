@@ -33,7 +33,7 @@ namespace callAbortableFnOnce {
         /**
          * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-abortable-fn-once#types)
          */
-        readonly value: V;
+        readonly value: Awaited<V>;
       };
 
   /**
@@ -54,21 +54,21 @@ namespace callAbortableFnOnce {
   /**
    * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-abortable-fn-once#types)
    */
-  export type Options<T> = {
+  export type Options<K, V> = {
     /**
      * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-abortable-fn-once#types)
      */
-    cacheMap: CacheMap;
+    cacheMap: CacheMap<K, V>;
 
     /**
      * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-abortable-fn-once#types)
      */
-    key: unknown;
+    key: NoInfer<K>;
 
     /**
      * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-abortable-fn-once#types)
      */
-    fn: (signal: AbortSignal) => T;
+    fn: (signal: AbortSignal) => NoInfer<V>;
 
     /**
      * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-abortable-fn-once#types)
@@ -103,10 +103,7 @@ type State = {
  *
  * 弱参照で保持するため、キャッシュマップが回収されると自動的に解放されます。
  */
-const statesByCacheMap = /*#__PURE__*/ new WeakMap<
-  callAbortableFnOnce.CacheMap,
-  Map<unknown, State>
->();
+const statesByCacheMap = /*#__PURE__*/ new WeakMap<callAbortableFnOnce.CacheMap, Map<any, State>>();
 
 /**
  * シグナルを指定しない待機者も数えるためのダミーシグナルです。
@@ -120,13 +117,13 @@ const dummySignal = /*#__PURE__*/ new AbortController().signal;
  *
  * 存在しないときは作成して返します。
  */
-function getOrCreateStateMap(cacheMap: callAbortableFnOnce.CacheMap): Map<unknown, State> {
+function getOrCreateStateMap<K, V>(cacheMap: callAbortableFnOnce.CacheMap<K, V>): Map<K, State> {
   const existing = statesByCacheMap.get(cacheMap);
   if (existing) {
     return existing;
   }
 
-  const created = new Map<unknown, State>();
+  const created = new Map<K, State>();
   statesByCacheMap.set(cacheMap, created);
 
   return created;
@@ -154,7 +151,7 @@ function addWaiter(state: State, signal: AbortSignal | undefined): void {
 /**
  * 待機者を外すときの指定です。
  */
-type RemoveWaiterOptions = {
+type RemoveWaiterOptions<K, V> = {
   /**
    * 待機者の集合を持つ世代の状態を指定します。
    */
@@ -163,17 +160,17 @@ type RemoveWaiterOptions = {
   /**
    * 世代が変わったかを判定するための状態マップを指定します。
    */
-  stateMap: Map<unknown, State>;
+  stateMap: Map<K, State>;
 
   /**
    * 世代の判定と後処理に使うキャッシュマップを指定します。
    */
-  cacheMap: callAbortableFnOnce.CacheMap;
+  cacheMap: callAbortableFnOnce.CacheMap<K, V>;
 
   /**
    * 処理対象のキーを指定します。
    */
-  key: unknown;
+  key: K;
 
   /**
    * 集合から外す待機者のシグナルを指定します。
@@ -183,7 +180,7 @@ type RemoveWaiterOptions = {
   /**
    * 世代を照合するための共有 Promise を指定します。
    */
-  promise: Promise<any>;
+  promise: Promise<V>;
 
   /**
    * 内部処理の中断と待機者の拒否に共用する中断理由を指定します。
@@ -201,7 +198,7 @@ type RemoveWaiterOptions = {
  * 手動で確定済みに上書きしたときは新しい世代とみなします。
  * 値は残し、状態だけ外します。
  */
-function removeWaiterAndAbortIfLast(options: RemoveWaiterOptions): void {
+function removeWaiterAndAbortIfLast<K, V>(options: RemoveWaiterOptions<K, V>): void {
   const { key, state, reason, signal, promise, cacheMap, stateMap } = options;
   state.sigs.delete(signal);
 
@@ -234,11 +231,11 @@ function suppressUnhandledRejection(promise: Promise<any>): void {
 /**
  * 待機者の中断の監視を付けるときの指定です。
  */
-type AttachAbortOptions = {
+type AttachAbortOptions<K, V> = {
   /**
    * 待機者が共有する Promise を指定します。
    */
-  promise: Promise<any>;
+  promise: Promise<V>;
 
   /**
    * 待機者の集合を持つ世代の状態を指定します。
@@ -248,12 +245,12 @@ type AttachAbortOptions = {
   /**
    * 世代の判定と後処理に使うキャッシュマップを指定します。
    */
-  cacheMap: callAbortableFnOnce.CacheMap;
+  cacheMap: callAbortableFnOnce.CacheMap<K, V>;
 
   /**
    * 処理対象のキーを指定します。
    */
-  key: unknown;
+  key: K;
 
   /**
    * 監視する待機者のシグナルを指定します。
@@ -265,7 +262,7 @@ type AttachAbortOptions = {
   /**
    * 世代が変わったかを判定するための状態マップを指定します。
    */
-  stateMap: Map<unknown, State>;
+  stateMap: Map<K, State>;
 };
 
 /**
@@ -277,7 +274,7 @@ type AttachAbortOptions = {
  * 既存の実行に参加するときは開始時の `throwIfAborted` でこの関数はすでに投げます。
  * そのため既存の実行では待機者がここで中断済みになることはありません。
  */
-function attachAbort(options: AttachAbortOptions): Promise<any> {
+function attachAbort<K, V>(options: AttachAbortOptions<K, V>): Promise<V> {
   const { key, state, signal, promise, cacheMap, stateMap } = options;
 
   // シグナルがないときはそのまま返します。
@@ -332,21 +329,21 @@ function attachAbort(options: AttachAbortOptions): Promise<any> {
 /**
  * 確定内容でキャッシュマップを更新するときの指定です。
  */
-type SettleOptions = {
+type SettleOptions<K, V> = {
   /**
    * 世代が変わったかを判定するための状態マップを指定します。
    */
-  stateMap: Map<unknown, State>;
+  stateMap: Map<K, State>;
 
   /**
    * 世代の判定と更新に使うキャッシュマップを指定します。
    */
-  cacheMap: callAbortableFnOnce.CacheMap;
+  cacheMap: callAbortableFnOnce.CacheMap<K, V>;
 
   /**
    * 処理対象のキーを指定します。
    */
-  key: unknown;
+  key: K;
 
   /**
    * 確定する世代の状態を指定します。
@@ -356,7 +353,7 @@ type SettleOptions = {
   /**
    * 世代を照合するための共有 Promise を指定します。
    */
-  promise: Promise<any>;
+  promise: Promise<V>;
 };
 
 /**
@@ -364,7 +361,7 @@ type SettleOptions = {
  *
  * 中断による世代交代や手動で確定済みに上書きしたときは `true` を返します。
  */
-function isStaleGeneration(options: SettleOptions): boolean {
+function isStaleGeneration<K, V>(options: SettleOptions<K, V>): boolean {
   const { key, state, promise, cacheMap, stateMap } = options;
 
   return stateMap.get(key) !== state || cacheMap.get(key)?.value !== promise;
@@ -373,21 +370,21 @@ function isStaleGeneration(options: SettleOptions): boolean {
 /**
  * 確定待ちの Promise を共有するときの指定です。
  */
-type TrackPendingOptions = {
+type TrackPendingOptions<K, V> = {
   /**
    * 世代が変わったかを判定するための状態マップを指定します。
    */
-  stateMap: Map<unknown, State>;
+  stateMap: Map<K, State>;
 
   /**
    * 共有 Promise の格納に使うキャッシュマップを指定します。
    */
-  cacheMap: callAbortableFnOnce.CacheMap;
+  cacheMap: callAbortableFnOnce.CacheMap<K, V>;
 
   /**
    * 処理対象のキーを指定します。
    */
-  key: unknown;
+  key: K;
 
   /**
    * 待機者の集合を持つ世代の状態を指定します。
@@ -405,9 +402,9 @@ type TrackPendingOptions = {
  *
  * 解決後は解決値で確定し、拒否時は削除して次回再実行できるようにします。
  */
-function trackPending(options: TrackPendingOptions): Promise<any> {
+function trackPending<K, V>(options: TrackPendingOptions<K, V>): Promise<any> {
   const { key, ret, state, cacheMap, stateMap } = options;
-  const promise = Promise.resolve(ret).then(
+  const promise = Promise.resolve(ret as PromiseLike<V>).then(
     (value) => {
       if (isStaleGeneration({ key, state, promise, cacheMap, stateMap })) {
         return value;
@@ -486,16 +483,16 @@ function invokeFn<T>(options: InvokeFnOptions<T>): T {
  * 位置引数とオプション形式を同一形状にそろえます。
  */
 // 3 関数で同形ですが Options 型が別物のため、あえて共通化せず複製しています。
-function normalizeArgs<T>(
+function normalizeArgs<K, V>(
   args:
-    | [options: callAbortableFnOnce.Options<T>]
+    | [options: callAbortableFnOnce.Options<K, V>]
     | [
-        cacheMap: callAbortableFnOnce.CacheMap,
-        key: unknown,
-        fn: (signal: AbortSignal) => T,
+        cacheMap: callAbortableFnOnce.CacheMap<K, V>,
+        key: K,
+        fn: (signal: AbortSignal) => V,
         signal?: AbortSignal | undefined,
       ],
-): callAbortableFnOnce.Options<T> {
+): callAbortableFnOnce.Options<K, V> {
   if (args.length === 1) {
     return args[0];
   }
@@ -508,30 +505,30 @@ function normalizeArgs<T>(
 /**
  * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-abortable-fn-once)
  */
-function callAbortableFnOnce<T>(
-  cacheMap: callAbortableFnOnce.CacheMap,
-  key: unknown,
-  fn: (signal: AbortSignal) => T,
+function callAbortableFnOnce<K, V>(
+  cacheMap: callAbortableFnOnce.CacheMap<K, V>,
+  key: NoInfer<K>,
+  fn: (signal: AbortSignal) => NoInfer<V>,
   signal?: AbortSignal,
-): callAbortableFnOnce.Return<T>;
+): callAbortableFnOnce.Return<V>;
 
 /**
  * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-abortable-fn-once#usage)
  */
-function callAbortableFnOnce<T>(
-  options: callAbortableFnOnce.Options<T>,
-): callAbortableFnOnce.Return<T>;
+function callAbortableFnOnce<K, V>(
+  options: callAbortableFnOnce.Options<K, V>,
+): callAbortableFnOnce.Return<V>;
 
-function callAbortableFnOnce<T>(
+function callAbortableFnOnce<K, V>(
   ...args:
-    | [options: callAbortableFnOnce.Options<T>]
+    | [options: callAbortableFnOnce.Options<K, V>]
     | [
-        cacheMap: callAbortableFnOnce.CacheMap,
-        key: unknown,
-        fn: (signal: AbortSignal) => T,
+        cacheMap: callAbortableFnOnce.CacheMap<K, V>,
+        key: NoInfer<K>,
+        fn: (signal: AbortSignal) => NoInfer<V>,
         signal?: AbortSignal | undefined,
       ]
-): callAbortableFnOnce.Return<T> {
+): Awaited<V> | Promise<V> {
   const { fn, key, signal, cacheMap } = normalizeArgs(args);
 
   // 別の関数と CacheMap を共有したときは投げます。
@@ -566,7 +563,7 @@ function callAbortableFnOnce<T>(
       promise: cache.value,
       cacheMap,
       stateMap,
-    }) as callAbortableFnOnce.Return<T>;
+    });
   }
 
   // 同期的な再入を禁止するため、ガード内で実行します。
@@ -599,8 +596,11 @@ function callAbortableFnOnce<T>(
         promise,
         cacheMap,
         stateMap,
-      }) as callAbortableFnOnce.Return<T>;
+      });
     }
+
+    // 非 Thenable の ret の型は Awaited<V> と同じになりますが、自動で型を絞り込めないので、手動でやります。
+    const value = ret as Awaited<V>;
 
     // fn の実行中に待機者が同期中断していたときは結果を確定しません。
     // 中断理由を投げます。
@@ -615,11 +615,11 @@ function callAbortableFnOnce<T>(
 
     cacheMap.set(key, {
       busy: false,
-      value: ret,
+      value,
     });
     stateMap.delete(key);
 
-    return ret as callAbortableFnOnce.Return<T>;
+    return value;
   });
 }
 

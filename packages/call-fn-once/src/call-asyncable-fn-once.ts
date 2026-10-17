@@ -25,21 +25,21 @@ namespace callAsyncableFnOnce {
   /**
    * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-asyncable-fn-once#types)
    */
-  export type Options<T> = {
+  export type Options<K, V> = {
     /**
      * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-asyncable-fn-once#types)
      */
-    cacheMap: CacheMap;
+    cacheMap: CacheMap<K, V>;
 
     /**
      * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-asyncable-fn-once#types)
      */
-    key: unknown;
+    key: NoInfer<K>;
 
     /**
      * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-asyncable-fn-once#types)
      */
-    fn: () => T;
+    fn: () => NoInfer<V>;
   };
 }
 
@@ -47,11 +47,11 @@ namespace callAsyncableFnOnce {
  * 位置引数とオプション形式を同一形状にそろえます。
  */
 // 3 関数で同形ですが Options 型が別物のため、あえて共通化せず複製しています。
-function normalizeArgs<T>(
+function normalizeArgs<K, V>(
   args:
-    | [options: callAsyncableFnOnce.Options<T>]
-    | [cacheMap: callAsyncableFnOnce.CacheMap, key: unknown, fn: () => T],
-): callAsyncableFnOnce.Options<T> {
+    | [options: callAsyncableFnOnce.Options<K, V>]
+    | [cacheMap: callAsyncableFnOnce.CacheMap<K, V>, key: K, fn: () => V],
+): callAsyncableFnOnce.Options<K, V> {
   if (args.length === 1) {
     return args[0];
   }
@@ -66,12 +66,12 @@ function normalizeArgs<T>(
  *
  * 解決後は解決値で確定し、拒否時は削除して次回再実行できるようにします。
  */
-function sharePending(
-  cacheMap: callAsyncableFnOnce.CacheMap,
-  key: unknown,
+function sharePending<K, V>(
+  cacheMap: callAsyncableFnOnce.CacheMap<K, V>,
+  key: K,
   ret: Thenable,
-): Promise<any> {
-  const promise = Promise.resolve(ret).then(
+): Promise<V> {
+  const promise = Promise.resolve(ret as PromiseLike<V>).then(
     (val) => {
       cacheMap.set(key, val);
 
@@ -91,24 +91,24 @@ function sharePending(
 /**
  * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-asyncable-fn-once)
  */
-function callAsyncableFnOnce<T>(
-  cacheMap: callAsyncableFnOnce.CacheMap,
-  key: unknown,
-  fn: () => T,
-): callAsyncableFnOnce.Return<T>;
+function callAsyncableFnOnce<K, V>(
+  cacheMap: callAsyncableFnOnce.CacheMap<K, V>,
+  key: NoInfer<K>,
+  fn: () => NoInfer<V>,
+): callAsyncableFnOnce.Return<V>;
 
 /**
  * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-asyncable-fn-once#usage)
  */
-function callAsyncableFnOnce<T>(
-  options: callAsyncableFnOnce.Options<T>,
-): callAsyncableFnOnce.Return<T>;
+function callAsyncableFnOnce<K, V>(
+  options: callAsyncableFnOnce.Options<K, V>,
+): callAsyncableFnOnce.Return<V>;
 
-function callAsyncableFnOnce<T>(
+function callAsyncableFnOnce<K, V>(
   ...args:
-    | [options: callAsyncableFnOnce.Options<T>]
-    | [cacheMap: callAsyncableFnOnce.CacheMap, key: unknown, fn: () => T]
-): callAsyncableFnOnce.Return<T> {
+    | [options: callAsyncableFnOnce.Options<K, V>]
+    | [cacheMap: callAsyncableFnOnce.CacheMap<K, V>, key: NoInfer<K>, fn: () => NoInfer<V>]
+): Awaited<V> | Promise<V> {
   const { fn, key, cacheMap } = normalizeArgs(args);
 
   // 別の関数と CacheMap を共有したときは投げます。
@@ -116,7 +116,7 @@ function callAsyncableFnOnce<T>(
 
   // `has()` で存在を確認するため、`undefined` の値も正しく扱えます。
   if (cacheMap.has(key)) {
-    return cacheMap.get(key);
+    return cacheMap.get(key) as Awaited<V> | Promise<V>;
   }
 
   // 同期的な再入を禁止するため、ガード内で実行します。
@@ -125,12 +125,15 @@ function callAsyncableFnOnce<T>(
     const ret = fn();
 
     if (isThenable(ret)) {
-      return sharePending(cacheMap, key, ret) as callAsyncableFnOnce.Return<T>;
+      return sharePending(cacheMap, key, ret);
     }
 
-    cacheMap.set(key, ret);
+    // 非 Thenable の ret の型は Awaited<V> と同じになりますが、自動で型を絞り込めないので、手動でやります。
+    const value = ret as Awaited<V>;
 
-    return ret as callAsyncableFnOnce.Return<T>;
+    cacheMap.set(key, value);
+
+    return value;
   });
 }
 

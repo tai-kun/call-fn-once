@@ -1,3 +1,5 @@
+import type callAbortableFnOnce from "../src/call-abortable-fn-once.js";
+
 /**
  * 手動で解決または拒否できる遅延 Promise です。
  *
@@ -74,10 +76,14 @@ export function delay(ms = 20): Promise<void> {
  * 世代の検証で古い世代の確定を待つために使います。
  * 実行中でないキーに使うとエラーを投げます。
  */
-export function getBusyPromise(cacheMap: Map<unknown, any>, key: unknown): Promise<any> {
-  const cache: { busy: boolean; value: Promise<any> } | undefined = cacheMap.get(key);
-
-  if (cache === undefined || cache.busy !== true) {
+export function getBusyPromise<K, V>(
+  cacheMap: {
+    get(key: K): callAbortableFnOnce.Cache<V> | undefined;
+  },
+  key: K,
+): Promise<V> {
+  const cache = cacheMap.get(key);
+  if (cache?.busy !== true) {
     throw new Error("Expected a busy cache for the given key.");
   }
 
