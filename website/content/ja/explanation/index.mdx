@@ -1,0 +1,23 @@
+---
+title: 解説
+description: 設計の背景や動作の仕組みを理解するための文章をまとめています。
+sidebar:
+  label: 概要
+---
+
+このセクションでは、`call-fn-once` が「なぜこのような設計になっているのか」を説明します。特定の作業手順が必要な場合は[ハウツーガイド](/how-to)を、引数と戻り値の仕様は[リファレンス](/reference)を参照してください。
+
+<CardGroup cols={2}>
+  <Card title="設計の背景" href="/explanation/design" icon="lightbulb">
+    解決する問題と、3 つの関数に分けた理由を説明します。
+  </Card>
+  <Card title="キーとキャッシュの寿命" href="/explanation/cache-lifecycle" icon="lightbulb">
+    キーの同一性、所有権、キャッシュの解放を説明します。
+  </Card>
+  <Card title="中断と待機者のモデル" href="/explanation/abort-semantics" icon="lightbulb">
+    中断の判定と世代管理の仕組みを説明します。
+  </Card>
+  <Card title="失敗と再試行の方針" href="/explanation/error-policy" icon="lightbulb">
+    失敗をキャッシュしない設計と、ガードエラーの意図を説明します。
+  </Card>
+</CardGroup>

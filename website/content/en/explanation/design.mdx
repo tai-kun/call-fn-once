@@ -1,0 +1,49 @@
+---
+title: Design background
+description: Explains the problem call-fn-once solves and why it was split into three functions.
+---
+
+## Avoiding repeated execution of the same work [#deduplication]
+
+Within a single application, the same work may be requested from several places, such as loading the same configuration or computing the result for the same request. A naive implementation would require each call site to check whether work has already run, wait while it is running, and clean up on failure.
+
+`call-fn-once` packages just this execution management into small functions. By passing a key and a `CacheMap`, you get deduplication of execution and sharing of results.
+
+## Sharing execution and sharing results [#sharing]
+
+For synchronous work, the result value is cached as-is. The second and later calls return the same value without running the function.
+
+For asynchronous work, the in-flight `Promise` is cached and replaced with the value once settled. This two-step process combines concurrent calls into a single execution, and later calls get the value without re-running or waiting. On failure, no cache entry is left, so the state returns to "not executed".
+
+## Why it is split into three functions [#three-functions]
+
+The features are not merged into a single function but split into three so that you can choose the function that carries only the features you need.
+
+- `callFnOnce` is synchronous-only, so it requires only `has`, `get`, and `set` from the `CacheMap`.
+- `callAsyncableFnOnce` discards entries that fail to settle, so it additionally requires `delete`.
+- `callAbortableFnOnce` carries the additional state of waiter and generation management.
+
+Bringing abort or waiter management into a synchronous-only use case increases the methods required from the `CacheMap` and the internal state. When the use case is clear, choosing the function with the fewest features is the right call.
+
+## Suitable use cases [#use-cases]
+
+- Lazy initialization of configuration values shared across the app
+- Combining duplicate asynchronous work for the same request or screen
+- Aborting work that is no longer needed, such as on a screen transition
+
+## Non-goals [#non-goals]
+
+- No time-to-live (TTL) or LRU eviction. How long a cache lives is determined by the lifetime of the `CacheMap`. See [Keys and cache lifetime](/explanation/cache-lifecycle) for details.
+- No management of retry counts or intervals. Because failures are not cached, the caller can control retries. See [Failure and retry policy](/explanation/error-policy) for details.
+- No handling of dependencies between multiple pieces of work or their execution order.
+
+## Related pages [#related]
+
+<CardGroup cols={2}>
+  <Card title="Keys and cache lifetime" href="/explanation/cache-lifecycle" icon="lightbulb">
+    Explains key identity, ownership, and cache release.
+  </Card>
+  <Card title="Failure and retry policy" href="/explanation/error-policy" icon="lightbulb">
+    Explains the decision not to cache failures and the intent of guard errors.
+  </Card>
+</CardGroup>

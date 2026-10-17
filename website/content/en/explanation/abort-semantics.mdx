@@ -1,0 +1,46 @@
+---
+title: Abort and waiter model
+description: Explains the mechanism that stops internal work only when every caller has aborted.
+---
+
+## Two kinds of signals [#signals]
+
+`callAbortableFnOnce` involves two kinds of signals.
+
+- The signal passed by the caller. It tells the function that the caller has stopped waiting.
+- The internal signal the callback receives. It is used to abort the work in progress.
+
+These are kept separate so that multiple callers can share the same work. If you pass the caller's signal directly to `fetch`, the entire work stops the moment one person aborts, and the other callers can no longer receive the result. What is passed to the internal work is an internal signal that is aborted only when no waiters remain.
+
+## Managing waiters [#waiters]
+
+For each execution in progress, the signals of the waiting callers are managed as a set.
+
+- Each call registers its passed signal in the set.
+- A call that specifies no signal is registered as a dummy signal that never fires. As long as that call is waiting, the set never becomes empty.
+- A caller that aborts is removed from the set and receives the abort reason for that call only. The shared work does not stop.
+- Only when the set becomes empty is the internal signal aborted and the cache discarded.
+- A call that joins an in-flight execution later also counts as a waiter.
+
+In other words, this is cooperative abort: keep working as long as someone needs the result, and clean up once everyone has left.
+
+## Generations and delayed results [#generations]
+
+When all waiters abort, that execution is no longer needed. However, asynchronous work that has already started does not necessarily stop immediately.
+
+So the state of each execution is distinguished as a generation. A result from an old execution that completes late after an abort does not overwrite the cache of a new generation. The next call with the same key starts a new execution.
+
+## Settled values and aborted signals [#settled]
+
+When a settled value is in the cache, the function normally returns the value without executing or waiting. However, if an already-aborted signal is passed, it throws the abort reason regardless of whether a cache exists. This is because the caller's intent to "no longer wait" takes priority over the presence of a cache.
+
+## Related pages [#related]
+
+<CardGroup cols={2}>
+  <Card title="Abort in-flight work" href="/how-to/abort-in-flight-work" icon="book-open">
+    Find the procedure for passing an AbortSignal to abort work.
+  </Card>
+  <Card title="callAbortableFnOnce" href="/reference/call-abortable-fn-once" icon="code">
+    Look up the abort-related specification.
+  </Card>
+</CardGroup>

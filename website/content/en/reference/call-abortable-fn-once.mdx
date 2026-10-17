@@ -1,13 +1,13 @@
 ---
 title: callAbortableFnOnce
-description: The spec of the function that supports sync and async values with cooperative aborting via AbortSignal.
+description: The specification of the function that supports sync and async and performs cooperative aborting via AbortSignal.
 ---
 
-Runs the callback once per key and caches the result. It accepts both sync and async values. For async values, the pending `Promise` is shared, and the settled value is reused afterwards. The running callback is aborted only when every caller has aborted.
+Runs the callback once per specified key and caches the result. It accepts both synchronous and asynchronous values. For asynchronous values it shares the in-flight `Promise`, and after resolution it reuses that value. The in-flight callback is aborted only when every caller has aborted.
 
 ## Usage [#usage]
 
-The callback receives a signal for aborting the internal work. Pass the caller's signal as the 4th argument or in the options form.
+The callback receives a signal for aborting internal work. The caller's signal can be passed as the fourth argument or in the options form.
 
 ```ts
 import { callAbortableFnOnce } from "call-fn-once";
@@ -44,26 +44,27 @@ const pending = callAbortableFnOnce({
 
 ## Behavior [#behavior]
 
-### Sync execution [#sync-execution]
+### Synchronous execution [#sync-execution]
 
-- The callback receives a signal for aborting the internal work. Sync successes are cached as-is.
-- Sync exceptions leave no state behind and retry on the next call.
-- Passing an already-aborted signal throws the abort reason without running the function.
+- It passes a signal for aborting internal work to the callback. A synchronous success is cached as-is.
+- A synchronous exception leaves no state, and the next call runs it again.
+- If an already-aborted signal is passed, it throws the abort reason without running the function.
 
-### Async execution [#async-execution]
+### Asynchronous execution [#async-execution]
 
-- Pending async work is shared. After settlement it is cached as the settled value, and later calls return the value directly.
-- Async failures are not cached. The next call runs the function again.
-- Caches are independent per key.
+- In-flight asynchronous work is shared. After resolution it is cached as the settled value, and the next call returns the value directly.
+- Asynchronous failures are not cached. The next call runs it again.
+- It caches independently per key.
 
 ### Abort [#abort]
 
-The abort rules are as follows.
+The rules for aborting are as follows.
 
-- The internal work is not aborted while at least one waiting caller remains.
-- The internal work is aborted and the cache discarded only when every waiting caller has aborted.
-- The internal work is never aborted while a signal-less call remains. Internally, a dummy signal that never fires is registered as a waiter so the waiter set never becomes empty.
-- A settled cache entry is returned as a regular value. However, calling with an already-aborted signal still throws the abort reason, even when cached.
+- If even one waiting caller remains, the internal work is not aborted.
+- Only when every waiting caller has aborted is the internal work aborted and the cache discarded.
+- Because no cache remains after all have aborted, the next call runs it again. A result from an old execution that settles late does not overwrite it.
+- As long as there is a call that specifies no signal, the internal work is not aborted. Internally, a dummy signal that never fires is registered as a waiter to prevent the waiter set from becoming empty.
+- After settlement, the cache is returned as an ordinary value. However, when called together with an already-aborted signal, it throws the abort reason even if a cache exists.
 
 ```ts abort.ts
 import { callAbortableFnOnce } from "call-fn-once";
@@ -86,18 +87,18 @@ const second = callAbortableFnOnce(
   secondController.signal,
 );
 
-// Aborting only the first call keeps the inner fetch running.
+// Even if only the first aborts, the internal fetch continues.
 firstController.abort();
 
-// Aborting the second call too leaves no waiters, so the internal work aborts.
+// When the second also aborts, no waiters remain, so the internal work is aborted.
 secondController.abort();
 ```
 
-:::tip
-Abort reasons are read with `getAbortReason` from `abort-signal-utils` and checked upfront with `throwIfAborted`. Reasons pass through as-is, so per-caller reasons never mix.
+:::note
+The abort reason carries the value of `AbortSignal.reason` as-is. If you call `controller.abort()` without specifying a reason, it becomes a `DOMException` of type `AbortError`.
 :::
 
-## Types [#types]
+## Type definitions [#types]
 
 <TypeTable
   type={{
@@ -105,76 +106,50 @@ Abort reasons are read with `getAbortReason` from `abort-signal-utils` and check
       type: "callAbortableFnOnce.CacheMap<K, V>",
       required: true,
       description:
-        "An object that holds results. Only has, get, set, and delete are required, so Map and WeakMap both work.",
+        "The object that holds execution results. Because it requires only has, get, set, and delete, either a Map or a WeakMap can be used.",
     },
     key: {
       type: "K",
       required: true,
-      description:
-        "A unique key identifying the cache entry. Its type comes from the K type argument of CacheMap.",
+      description: "A unique key that identifies the cache. Its type is determined by the CacheMap type argument K.",
     },
     fn: {
       type: "(signal: AbortSignal) => V",
       required: true,
       description:
-        "The callback function to run. It receives a signal for aborting the internal work. Its return value must match the V type argument of CacheMap.",
+        "The callback to run. It receives a signal for aborting internal work as an argument. Its return value must match the CacheMap type argument V.",
     },
     signal: {
       type: "AbortSignal",
       required: false,
-      description: "An abort signal passed by the caller. Can be omitted.",
+      description: "The abort signal passed by the caller. It can be omitted.",
     },
   }}
 />
 
-`callAbortableFnOnce.CacheMap` requires `has()`, `get()`, `set()`, and `delete()`. Both `Map` and `WeakMap` can be passed directly. `WeakMap` keys must be objects.
+`callAbortableFnOnce.CacheMap` requires `has()`, `get()`, `set()`, and `delete()`. You can pass a `Map` or a `WeakMap` directly. Only objects can be used as `WeakMap` keys.
 
-The return type is `callAbortableFnOnce.Return<V>`. When `V` is a thenable it wraps the resolved value in `MaybePromise`; otherwise it stays as `V`.
+The return type is `callAbortableFnOnce.Return<V>`. When `V` is a Thenable, it becomes the resolved value wrapped in `MaybePromise`; otherwise it stays as `V`.
 
-### Type inference [#type-inference]
+The value stored in the `CacheMap` is managed by the `callAbortableFnOnce.Cache` type. While running, it stores `busy: true` and a `Promise`; when complete, it stores `busy: false` and the settled value.
 
-The return type comes from the `V` type argument of `CacheMap`, not from the callback's return value. The `key` type also comes from the `K` type argument of `CacheMap`.
+The return type is determined by the `CacheMap` type argument `V`, not by the callback's return value. For how to specify `K` and `V` to prevent compile-time mistakes, see [Improve safety with type arguments](/how-to/type-safely).
 
-Inferring the return type from the callback would let callers use a different type for the same key on each call, so the following code would type-check. The second call is typed as `string`, but at runtime it returns the `number` `42` cached by the first call.
+### Error classes [#error-classes]
 
-```ts unsafe.ts
-import { callAbortableFnOnce } from "call-fn-once";
+- If an in-flight record (`busy: true`) exists but there is no waiter information, it synchronously throws `InconsistentCacheError` as a cache inconsistency, without running the function again.
+- The same key of the same `Map` cannot be called again during the callback's synchronous execution. A reentrant call synchronously throws `ReentrantCallError`. A call that joins later to share an in-flight `Promise` is not subject to this.
+- If the same `CacheMap` is used by another function, it synchronously throws `MismatchedCacheMapError` regardless of the key.
 
-const cacheMap: callAbortableFnOnce.CacheMap = new Map();
-
-const value1: number = callAbortableFnOnce(cacheMap, "key", () => 42);
-console.log(value1); // 42
-
-const value2: string = callAbortableFnOnce(cacheMap, "key", () => "42");
-console.log(value2); // 42
-```
-
-To get the constraint, specify the key and value types with the `CacheMap` type arguments. With `CacheMap<string, number>`, returning a `string` for the same key is a compile error.
-
-```ts typed.ts
-import { callAbortableFnOnce } from "call-fn-once";
-
-const cacheMap: callAbortableFnOnce.CacheMap<string, number> = new Map();
-
-const value1: number = callAbortableFnOnce(cacheMap, "key", () => 42);
-
-// Type error: the same key can only be associated with a number.
-const value2: string = callAbortableFnOnce(cacheMap, "key", () => "42");
-```
-
-If you write `CacheMap` without its type arguments, `V` is `any`, so specify them when you need the constraint.
-
-Cached values are held as `callAbortableFnOnce.Cache`. Running entries store `busy: true` with a `Promise`, and settled entries store `busy: false` with the settled value.
-
-Using the same `CacheMap` from another function throws `MismatchedCacheMapError` synchronously, regardless of the key. Use a separate `Map` per function.
+All can be identified with `instanceof`. For details and identification examples, see [Error classes](/reference/errors).
 
 ## Related pages [#related]
 
 <CardGroup cols={2}>
-  <Card title="callAsyncableFnOnce" href="./call-asyncable-fn-once" icon="code">
-    Check the async-sharing spec for when aborting is unnecessary.
+  <Card title="callAsyncableFnOnce" href="/reference/call-asyncable-fn-once" icon="code">
+    Look up the asynchronous sharing specification when aborting is not needed.
   </Card>
-  <Card title="Abort Patterns" href="../guides/abort-patterns" icon="book-open">
-    Learn how waiters and dummy signals work.
+  <Card title="Abort in-flight work" href="/how-to/abort-in-flight-work" icon="book-open">
+    Find how waiter management and the dummy signal are used.
   </Card>
 </CardGroup>

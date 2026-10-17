@@ -1,9 +1,9 @@
 ---
 title: callFnOnce
-description: The spec of the function that runs a sync function once per key and shares the result.
+description: The specification of the function that runs a synchronous callback once per key and shares the result.
 ---
 
-Runs the callback once per key and caches the result. Later calls with the same key return the cached result without running it again.
+Runs the callback once per specified key and caches the result. The second and later calls return the cached result without re-running.
 
 ## Usage [#usage]
 
@@ -15,7 +15,7 @@ const cacheMap: callFnOnce.CacheMap = new Map();
 const result = callFnOnce(cacheMap, "key", () => 42);
 ```
 
-The options form returns the same result.
+The options form yields the same result.
 
 ```ts options.ts
 import { callFnOnce } from "call-fn-once";
@@ -31,12 +31,13 @@ const result = callFnOnce({
 
 ## Behavior [#behavior]
 
-- `undefined` results are cached too, because existence is checked with `has()`.
-- Cached objects are returned by the same reference.
-- A sync exception is not cached. The next call runs the function again.
-- Caches are independent per key.
-- Caches are independent per `CacheMap`. Use a separate `Map` when the use cases differ.
-- Using the same `CacheMap` from another function throws `MismatchedCacheMapError` synchronously, regardless of the key. Use a separate `Map` per function.
+- It caches an `undefined` result too. This is because existence is checked with `has()`.
+- It returns a cached object by the same reference.
+- It does not cache a thrown synchronous exception. The next call runs it again.
+- It caches independently per key.
+- It is independent per `CacheMap`. If use cases differ, split the `Map`.
+- The same key of the same `Map` cannot be called again during the callback's synchronous execution. Reentry synchronously throws `ReentrantCallError`. Split the keys to avoid it.
+- If the same `CacheMap` is used by another function, it synchronously throws `MismatchedCacheMapError` regardless of the key. Split the `Map` per function.
 
 ```ts
 import { callFnOnce } from "call-fn-once";
@@ -56,15 +57,15 @@ const cached = callFnOnce(cacheMap, "key", () => {
   return "second";
 });
 
-console.log(cached);
-console.log(callCount);
+console.log(cached); // undefined
+console.log(callCount); // 1
 ```
 
 :::warning
-Passing an async function caches the `Promise` object itself. It does not share the pending state or retry on rejection. Use `callAsyncableFnOnce` for async work.
+Passing an async function caches the `Promise` object itself. There is no sharing of pending resolution or re-execution on rejection. If asynchronous work is involved, use `callAsyncableFnOnce`.
 :::
 
-## Types [#types]
+## Type definitions [#types]
 
 <TypeTable
   type={{
@@ -72,24 +73,22 @@ Passing an async function caches the `Promise` object itself. It does not share 
       type: "callFnOnce.CacheMap<K, V>",
       required: true,
       description:
-        "An object that holds results. Only has, get, and set are required, so Map and WeakMap both work.",
+        "The object that holds execution results. Because it requires only has, get, and set, either a Map or a WeakMap can be used.",
     },
     key: {
       type: "K",
       required: true,
-      description:
-        "A unique key identifying the cache entry. Its type comes from the K type argument of CacheMap.",
+      description: "A unique key that identifies the cache. Its type is determined by the CacheMap type argument K.",
     },
     fn: {
       type: "() => V",
       required: true,
-      description:
-        "The callback function to run. Its return value must match the V type argument of CacheMap.",
+      description: "The callback to run. Its return value must match the CacheMap type argument V.",
     },
   }}
 />
 
-`callFnOnce.CacheMap` only requires `has()`, `get()`, and `set()`. Both `Map` and `WeakMap` can be passed directly; `delete()` is not required, and `WeakMap` keys must be objects.
+`callFnOnce.CacheMap` requires only `has()`, `get()`, and `set()`. You can pass a `Map` or a `WeakMap` directly. It does not require `delete()`. Only objects can be used as `WeakMap` keys.
 
 The return type is `callFnOnce.Return<V>`, which is the same as `V`.
 
@@ -103,46 +102,15 @@ const num: number = callFnOnce(numberCacheMap, "num", () => 1);
 const nothing: undefined = callFnOnce(undefinedCacheMap, "nothing", () => undefined);
 ```
 
-### Type inference [#type-inference]
-
-The return type comes from the `V` type argument of `CacheMap`, not from the callback's return value. The `key` type also comes from the `K` type argument of `CacheMap`.
-
-Inferring the return type from the callback would let callers use a different type for the same key on each call, so the following code would type-check. The second call is typed as `string`, but at runtime it returns the `number` `42` cached by the first call.
-
-```ts unsafe.ts
-import { callFnOnce } from "call-fn-once";
-
-const cacheMap: callFnOnce.CacheMap = new Map();
-
-const value1: number = callFnOnce(cacheMap, "key", () => 42);
-console.log(value1); // 42
-
-const value2: string = callFnOnce(cacheMap, "key", () => "42");
-console.log(value2); // 42
-```
-
-To get the constraint, specify the key and value types with the `CacheMap` type arguments. With `CacheMap<string, number>`, returning a `string` for the same key is a compile error.
-
-```ts typed.ts
-import { callFnOnce } from "call-fn-once";
-
-const cacheMap: callFnOnce.CacheMap<string, number> = new Map();
-
-const value1: number = callFnOnce(cacheMap, "key", () => 42);
-
-// Type error: the same key can only be associated with a number.
-const value2: string = callFnOnce(cacheMap, "key", () => "42");
-```
-
-If you write `CacheMap` without its type arguments, `V` is `any`, so specify them when you need the constraint.
+The return type is determined by the `CacheMap` type argument `V`, not by the callback's return value. For how to specify `K` and `V` to prevent compile-time mistakes, see [Improve safety with type arguments](/how-to/type-safely).
 
 ## Related pages [#related]
 
 <CardGroup cols={2}>
-  <Card title="callAsyncableFnOnce" href="./call-asyncable-fn-once" icon="code">
-    Use it to also share pending async work.
+  <Card title="callAsyncableFnOnce" href="/reference/call-asyncable-fn-once" icon="code">
+    Use when you also want to share a pending asynchronous resolution.
   </Card>
-  <Card title="Error Handling" href="../guides/error-handling" icon="book-open">
-    Learn how retries work for exceptions and rejections.
+  <Card title="Error classes" href="/reference/errors" icon="code">
+    Look up the thrown error classes and how to identify them.
   </Card>
 </CardGroup>

@@ -1,0 +1,43 @@
+---
+title: インストールする
+description: call-fn-once パッケージの追加方法と、動作に必要な環境を説明します。
+---
+
+## 動作環境 [#requirements]
+
+- Node.js 24 以上を推奨します。
+- ESM (`import` / `export`) 専用です。CommonJS の `require` では読み込めません。
+- TypeScript の型定義を同梱しています。追加の設定は不要です。
+
+## パッケージを追加する [#install]
+
+```package-install
+npm i call-fn-once
+```
+
+:::note
+依存パッケージもあわせて追加されます。いずれも軽量で、特定のフレームワークには依存しません。
+:::
+
+## 関数をインポートする [#import]
+
+```ts
+import {
+  callAbortableFnOnce,
+  callAsyncableFnOnce,
+  callFnOnce,
+} from "call-fn-once";
+```
+
+使う関数だけを読み込めます。どれを使うか迷ったら、[用途に合う関数を選ぶ](/how-to/choose-a-function)を参照してください。
+
+## 関連ページ [#related]
+
+<CardGroup cols={2}>
+  <Card title="用途に合う関数を選ぶ" href="/how-to/choose-a-function" icon="route">
+    同期・非同期・中断の要件から、使う関数を決めます。
+  </Card>
+  <Card title="チュートリアル" href="/tutorial" icon="rocket">
+    インストールから 3 つの関数を動かすまでを順に体験します。
+  </Card>
+</CardGroup>

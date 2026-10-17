@@ -11,7 +11,7 @@ description: キーごとにコールバック関数を一度だけ実行し、�
 - 同期値はそのまま、非同期値は解決待ちの `Promise` を共有します。
 - 失敗した結果はキャッシュしないため、次回の呼び出しで再実行できます。
 - 中断に対応した関数では、待機中の呼び出し元がすべて中断したときに限り、内部処理を中断します。
-- 外部への依存は `abort-signal-utils` と `maypromise` だけで、フレームワークには依存しません。
+- 依存パッケージは軽量で、特定のフレームワークに依存しません。
 
 ## 3 つの関数の選び方 [#choosing-a-function]
 
@@ -21,7 +21,7 @@ description: キーごとにコールバック関数を一度だけ実行し、�
 | `callAsyncableFnOnce` | 同期と非同期が混在する場合に使います | ○ | ○ | — |
 | `callAbortableFnOnce` | 中断に対応する必要がある場合に使います | ○ | ○ | ○ |
 
-どれを選ぶか迷ったときは、同期処理だけなら `callFnOnce`、非同期処理を含むなら `callAsyncableFnOnce`、外部から中断できる必要があるなら `callAbortableFnOnce` を選んでください。
+どれを選ぶか迷ったときは、同期処理だけなら `callFnOnce`、非同期処理を含むなら `callAsyncableFnOnce`、外部から中断できる必要があるなら `callAbortableFnOnce` を選んでください。判断に迷う場合は、[用途に合う関数を選ぶ](/how-to/choose-a-function)で詳しく説明しています。
 
 ## クイックスタート [#quick-start]
 
@@ -41,19 +41,23 @@ const second = callFnOnce(cacheMap, "config", () => {
 console.log(first === second);
 ```
 
-2 回目の呼び出しではコールバック関数を実行せず、1 回目の結果をそのまま返します。詳しい手順はクイックスタートで紹介します。
+2 回目の呼び出しではコールバック関数を実行せず、1 回目の結果をそのまま返します。手を動かして学びたい場合は、チュートリアルから始めてください。
+
+## ドキュメントの構成 [#documentation]
+
+このドキュメントは目的ごとに 4 つのセクションに分かれています。読む順番は決まっていないため、目的に合うセクションから読み始めてください。
 
 <CardGroup cols={2}>
-  <Card title="インストール" href="./getting-started/installation" icon="download">
-    パッケージの追加方法と動作環境を確認します。
+  <Card title="チュートリアル" href="/tutorial" icon="rocket">
+    手を動かしながら、3 つの関数の基本を順に学びます。
   </Card>
-  <Card title="クイックスタート" href="./getting-started/quick-start" icon="rocket">
-    位置引数とオプション形式の基本的な使い方を学びます。
+  <Card title="ハウツーガイド" href="/how-to" icon="book-open">
+    キーの設計やエラー処理など、目的別の手順を確認します。
   </Card>
-  <Card title="リファレンス" href="./reference" icon="code">
-    3 つの関数の引数と戻り値を詳しく確認します。
+  <Card title="リファレンス" href="/reference" icon="code">
+    3 つの関数の引数と戻り値の仕様を確認します。
   </Card>
-  <Card title="ガイド" href="./guides" icon="book-open">
-    キー設計やエラー処理などの実践的な知識を学びます。
+  <Card title="解説" href="/explanation" icon="lightbulb">
+    設計の背景や動作の仕組みを理解します。
   </Card>
 </CardGroup>

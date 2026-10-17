@@ -1,0 +1,69 @@
+---
+title: Improve safety with type arguments
+description: Explains how to fix the key and value types with CacheMap<K, V> type arguments to catch mistakes at compile time.
+---
+
+## Specify type arguments [#specify]
+
+By specifying the `K` and `V` type arguments of `CacheMap`, the compiler can verify that the same key always corresponds to a value of type `V`.
+
+```ts
+import { callFnOnce } from "call-fn-once";
+
+const cacheMap: callFnOnce.CacheMap<string, number> = new Map();
+
+const value = callFnOnce(cacheMap, "answer", () => 42);
+
+console.log(value); // number
+```
+
+If not specified, `V` becomes `any`, and writing a type different from the value actually returned does not cause a compile error.
+
+```ts
+const cacheMap: callFnOnce.CacheMap = new Map();
+
+const value = callFnOnce(cacheMap, "answer", () => 42);
+const text: string = value; // compiles, but text is 42 at runtime
+
+console.log(text);
+```
+
+## How the return type is determined [#return-type]
+
+The return type of `callFnOnce` is determined by the `CacheMap` type argument `V`, not by the callback's return value. This is because the only relation communicated to the compiler is that the same key always corresponds to `V`. If the value type differs per key, specify `unknown` for `V` and narrow the type at the point of use.
+
+```ts
+const cacheMap: callFnOnce.CacheMap<string, unknown> = new Map();
+
+const value = callFnOnce(cacheMap, "port", () => 3000);
+
+if (typeof value === "number") {
+  console.log(value + 1);
+}
+```
+
+## Handling Thenables [#thenables]
+
+In `callAsyncableFnOnce` and `callAbortableFnOnce`, when `V` is a Thenable, the return type becomes `MaybePromise<Awaited<V>>`.
+
+```ts
+type CacheMap = callAsyncableFnOnce.CacheMap<string, Promise<number>>;
+
+const cacheMap: CacheMap = new Map();
+
+const value = callAsyncableFnOnce(cacheMap, "key", async () => 42);
+
+// it returns a Promise while running and a number after resolution, so the type accepts both
+console.log(value); // Promise<number> | number
+```
+
+## Related pages [#related]
+
+<CardGroup cols={2}>
+  <Card title="callFnOnce" href="/reference/call-fn-once" icon="code">
+    Look up the function specification, including its type definitions.
+  </Card>
+  <Card title="callAsyncableFnOnce" href="/reference/call-asyncable-fn-once" icon="code">
+    Look up the type definitions of the function that handles Thenables.
+  </Card>
+</CardGroup>

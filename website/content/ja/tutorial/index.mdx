@@ -1,0 +1,139 @@
+---
+title: はじめてのキャッシュ共有
+description: インストールから、同期・非同期・中断の 3 つの関数を動かすまでを順に体験します。
+---
+
+このページは `call-fn-once` を初めて使う方に向けたチュートリアルです。パッケージの追加から始めて、3 つの関数を順に動かしながら、結果が共有される仕組みを確認します。
+
+Node.js 24 以上と npm を用意してください。ほかのパッケージマネージャーを使う場合も、コマンドを読み替えれば同じように進められます。
+
+## 1. パッケージを追加する [#install]
+
+```package-install
+npm i call-fn-once
+```
+
+`call-fn-once` は ESM 専用です。CommonJS の `require` では読み込めません。TypeScript の型定義は同梱されているため、追加の設定は不要です。
+
+## 2. CacheMap を用意する [#cache-map]
+
+実行結果は `Map` に記録します。この `Map` を `CacheMap` と呼びます。用途ごとに `CacheMap` を分けると、キャッシュを共有する範囲を制御できます。
+
+```ts
+import { callFnOnce } from "call-fn-once";
+
+const cacheMap: callFnOnce.CacheMap = new Map();
+```
+
+## 3. 同期処理を一度だけ実行する [#sync]
+
+`callFnOnce` はキーごとにコールバック関数を一度だけ実行して、結果を共有します。次のコードでは、同じキーで 2 回呼び出してもコールバック関数は 1 回しか実行されません。
+
+```ts
+import { callFnOnce } from "call-fn-once";
+
+const cacheMap: callFnOnce.CacheMap = new Map();
+let callCount = 0;
+
+const first = callFnOnce(cacheMap, "config", () => {
+  callCount += 1;
+
+  return { timeout: 3000 };
+});
+
+const second = callFnOnce(cacheMap, "config", () => {
+  callCount += 1;
+
+  return { timeout: 9999 };
+});
+
+console.log(first);
+console.log(first === second);
+console.log(callCount);
+```
+
+`first` と `second` は同じオブジェクトを参照し、`callCount` は `1` のままです。2 回目のコールバック関数は実行されないため、`{ timeout: 9999 }` が返ることはありません。
+
+## 4. 非同期処理の解決待ちを共有する [#async]
+
+非同期処理には `callAsyncableFnOnce` を使います。解決前の呼び出しは 1 回の実行にまとめられ、同じ `Promise` を共有します。
+
+```ts
+import { callAsyncableFnOnce } from "call-fn-once";
+
+const cacheMap: callAsyncableFnOnce.CacheMap = new Map();
+let callCount = 0;
+
+const first = callAsyncableFnOnce(cacheMap, "user", async () => {
+  callCount += 1;
+
+  return "tai-kun";
+});
+
+const second = callAsyncableFnOnce(cacheMap, "user", async () => {
+  callCount += 1;
+
+  return "someone-else";
+});
+
+console.log(await first);
+console.log(await second);
+console.log(callCount);
+```
+
+`await first` と `await second` はどちらも `"tai-kun"` になり、`callCount` は `1` のままです。解決後は確定した値がキャッシュに残るため、次回の呼び出しでは `Promise` ではなく値が直接返ります。
+
+```ts
+const cached = callAsyncableFnOnce(cacheMap, "user", () => {
+  throw new Error("解決後は実行されません");
+});
+
+console.log(cached);
+```
+
+## 5. 実行中の処理を中断する [#abort]
+
+中断が必要な場合は `callAbortableFnOnce` を使います。コールバック関数は内部処理を中断するためのシグナルを受け取るため、`fetch` などの中断対応 API にそのまま渡せます。
+
+```ts
+import { callAbortableFnOnce } from "call-fn-once";
+
+const cacheMap: callAbortableFnOnce.CacheMap = new Map();
+const controller = new AbortController();
+
+const pending = callAbortableFnOnce(
+  cacheMap,
+  "data",
+  (signal) => fetch("https://example.com/data", { signal }),
+  controller.signal,
+);
+
+controller.abort();
+await pending.catch((error: unknown) => error);
+```
+
+`controller.abort()` で呼び出し元が中断すると、待機者がほかにいなければ内部の `fetch` も中断され、キャッシュは破棄されます。ほかの呼び出し元が待っている場合は、その呼び出し元のために処理が続きます。
+
+## まとめ [#recap]
+
+ここまでで 3 つの関数をすべて動かしました。
+
+| 関数 | 扱える値 | 中断 | 主な用途 |
+| --- | --- | --- | --- |
+| `callFnOnce` | 同期値 | 非対応 | 同期処理のメモ化 |
+| `callAsyncableFnOnce` | 同期値と非同期値 | 非対応 | 解決待ちの共有 |
+| `callAbortableFnOnce` | 同期値と非同期値 | 対応 | 中断を含む処理の共有 |
+
+## 次のステップ [#next-steps]
+
+<CardGroup cols={3}>
+  <Card title="ハウツーガイド" href="/how-to" icon="book-open">
+    目的別の手順から、必要なものを探せます。
+  </Card>
+  <Card title="リファレンス" href="/reference" icon="code">
+    3 つの関数の仕様を確認できます。
+  </Card>
+  <Card title="解説" href="/explanation" icon="lightbulb">
+    設計の背景や動作の仕組みを理解できます。
+  </Card>
+</CardGroup>

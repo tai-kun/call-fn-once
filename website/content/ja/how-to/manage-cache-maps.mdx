@@ -1,0 +1,102 @@
+---
+title: CacheMap のスコープを設計する
+description: Map の分け方、WeakMap の使いどころ、キャッシュの破棄方法を説明します。
+---
+
+## CacheMap とは [#what-is]
+
+`CacheMap` は実行結果を保持するオブジェクトで、実体は `Map` または `WeakMap` です。`callFnOnce` は `has`・`get`・`set` だけを要求し、`callAsyncableFnOnce` と `callAbortableFnOnce` は `delete` も要求します。
+
+## 用途ごとに Map を分ける [#separate-maps]
+
+`CacheMap` は結果を共有したい範囲ごとに作ります。目的が異なるキャッシュを同じ `Map` に入れると、参照の保持や破棄のタイミングが揃わず、管理しにくくなります。
+
+```ts
+// アプリ全体で共有する設定値
+const configMap: callFnOnce.CacheMap<string, object> = new Map();
+
+// リクエストごとに作る一時的なキャッシュ
+function handleRequest(request: Request) {
+  const requestMap: callFnOnce.CacheMap = new Map();
+
+  return callFnOnce(requestMap, "session", () => loadSession(request));
+}
+```
+
+アプリ全体で共有する場合は、モジュールスコープで `Map` を作成します。リクエストや画面など単位が決まっている場合は、その単位の中で作成すると、単位が終わった時点でキャッシュも不要になります。
+
+## 関数ごとに Map を分ける [#one-function-per-map]
+
+同じ `Map` を複数の関数に渡すことはできません。関数ごとに新しい `Map` を作成してください。
+
+```ts
+// NG: 同じ CacheMap を複数の関数で使っています
+const cacheMap = new Map();
+
+callFnOnce(cacheMap, "a", () => 1);
+callAsyncableFnOnce(cacheMap, "b", async () => 2); // MismatchedCacheMapError
+```
+
+```ts
+// OK: 関数ごとに CacheMap を作成しています
+const syncMap = new Map();
+const asyncMap = new Map();
+
+callFnOnce(syncMap, "a", () => 1);
+callAsyncableFnOnce(asyncMap, "b", async () => 2);
+```
+
+内部の記録形式が関数ごとに異なるため、最初に使った関数が `Map` の所有権を登録します。別の関数が同じ `Map` を使うと、キーによらず `MismatchedCacheMapError` を同期的に投げます。キーを分けても防げません。
+
+## キャッシュを破棄する [#discard]
+
+キー単位でキャッシュを破棄するには `delete` を使います。`Map` を具体的な `Map` 型で保持しておくと、`delete` をそのまま呼べます。
+
+```ts
+const cacheMap = new Map<string, number>();
+
+callFnOnce(cacheMap, "key", () => 1);
+
+cacheMap.delete("key");
+```
+
+`Map` 自体を破棄すると、その中のキャッシュもまとめて破棄されます。キャッシュを使う関数の実行が終わったあとに `Map` への参照が残っていなければ、ガベージコレクションの対象になります。
+
+`callAbortableFnOnce` は待機者の状態と所有権の記録を内部の `WeakMap` で管理します。こちらも `Map` を破棄すれば一緒に解放されます。
+
+## WeakMap を使う [#using-weakmap]
+
+キーのオブジェクトが不要になったら、キャッシュも自動的に解放されてほしい場合は `WeakMap` を使います。
+
+```ts
+const cacheMap: callAbortableFnOnce.CacheMap<Element, string> = new WeakMap();
+
+const element = document.querySelector("#target");
+
+if (element) {
+  const result = callAbortableFnOnce(cacheMap, element, (signal) => {
+    return fetchText(element, signal);
+  });
+
+  console.log(result);
+}
+```
+
+:::note
+`WeakMap` には次の制約があります。
+
+- キーに使えるのはオブジェクトとシンボルだけです。文字列や数値は使えません。
+- `size` や `clear` は使えず、エントリーを列挙することもできません。
+- キーのオブジェクトが到達不能になると、エントリーは自動的に回収されます。
+:::
+
+## 関連ページ [#related]
+
+<CardGroup cols={2}>
+  <Card title="キーを設計する" href="/how-to/design-keys" icon="key">
+    キャッシュを共有したい単位でキーを決めます。
+  </Card>
+  <Card title="キーとキャッシュの寿命" href="/explanation/cache-lifecycle" icon="lightbulb">
+    キーの同一性とキャッシュが保持される期間を理解できます。
+  </Card>
+</CardGroup>

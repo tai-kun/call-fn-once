@@ -1,0 +1,139 @@
+---
+title: Your first shared cache
+description: "Walk through installing the package and running all three functions: synchronous, asynchronous, and abortable."
+---
+
+This page is a tutorial for first-time users of `call-fn-once`. Starting from adding the package, you will run the three functions in turn and see how results are shared.
+
+Prepare Node.js 24 or later and npm. If you use another package manager, the same steps apply once you adjust the commands.
+
+## 1. Add the package [#install]
+
+```package-install
+npm i call-fn-once
+```
+
+`call-fn-once` is ESM-only. It cannot be loaded with CommonJS `require`. TypeScript type definitions are bundled, so no additional setup is needed.
+
+## 2. Prepare a CacheMap [#cache-map]
+
+Execution results are recorded in a `Map`. This `Map` is called a `CacheMap`. Splitting `CacheMap`s by purpose lets you control the scope over which a cache is shared.
+
+```ts
+import { callFnOnce } from "call-fn-once";
+
+const cacheMap: callFnOnce.CacheMap = new Map();
+```
+
+## 3. Run synchronous work once [#sync]
+
+`callFnOnce` runs the callback once per key and shares the result. In the following code, even when called twice with the same key, the callback runs only once.
+
+```ts
+import { callFnOnce } from "call-fn-once";
+
+const cacheMap: callFnOnce.CacheMap = new Map();
+let callCount = 0;
+
+const first = callFnOnce(cacheMap, "config", () => {
+  callCount += 1;
+
+  return { timeout: 3000 };
+});
+
+const second = callFnOnce(cacheMap, "config", () => {
+  callCount += 1;
+
+  return { timeout: 9999 };
+});
+
+console.log(first);
+console.log(first === second);
+console.log(callCount);
+```
+
+`first` and `second` reference the same object, and `callCount` stays at `1`. The second callback is not run, so `{ timeout: 9999 }` is never returned.
+
+## 4. Share a pending asynchronous result [#async]
+
+Use `callAsyncableFnOnce` for asynchronous work. Calls made before resolution are combined into a single execution and share the same `Promise`.
+
+```ts
+import { callAsyncableFnOnce } from "call-fn-once";
+
+const cacheMap: callAsyncableFnOnce.CacheMap = new Map();
+let callCount = 0;
+
+const first = callAsyncableFnOnce(cacheMap, "user", async () => {
+  callCount += 1;
+
+  return "tai-kun";
+});
+
+const second = callAsyncableFnOnce(cacheMap, "user", async () => {
+  callCount += 1;
+
+  return "someone-else";
+});
+
+console.log(await first);
+console.log(await second);
+console.log(callCount);
+```
+
+Both `await first` and `await second` resolve to `"tai-kun"`, and `callCount` stays at `1`. After resolution, the settled value stays in the cache, so the next call returns the value directly instead of a `Promise`.
+
+```ts
+const cached = callAsyncableFnOnce(cacheMap, "user", () => {
+  throw new Error("this does not run after resolution");
+});
+
+console.log(cached);
+```
+
+## 5. Abort in-flight work [#abort]
+
+Use `callAbortableFnOnce` when you need abort support. The callback receives a signal for aborting internal work, so it can be passed directly to abort-aware APIs such as `fetch`.
+
+```ts
+import { callAbortableFnOnce } from "call-fn-once";
+
+const cacheMap: callAbortableFnOnce.CacheMap = new Map();
+const controller = new AbortController();
+
+const pending = callAbortableFnOnce(
+  cacheMap,
+  "data",
+  (signal) => fetch("https://example.com/data", { signal }),
+  controller.signal,
+);
+
+controller.abort();
+await pending.catch((error: unknown) => error);
+```
+
+When a caller aborts via `controller.abort()`, the internal `fetch` is aborted if no other callers remain, and the cache is discarded. If other callers are still waiting, the work continues for their sake.
+
+## Recap [#recap]
+
+You have now run all three functions.
+
+| Function | Values handled | Abort | Main use case |
+| --- | --- | --- | --- |
+| `callFnOnce` | Synchronous values | Not supported | Memoizing synchronous work |
+| `callAsyncableFnOnce` | Synchronous and asynchronous values | Not supported | Sharing a pending result |
+| `callAbortableFnOnce` | Synchronous and asynchronous values | Supported | Sharing work that includes abort |
+
+## Next steps [#next-steps]
+
+<CardGroup cols={3}>
+  <Card title="How-to Guides" href="/how-to" icon="book-open">
+    Find what you need from task-oriented procedures.
+  </Card>
+  <Card title="Reference" href="/reference" icon="code">
+    Look up the specifications of the three functions.
+  </Card>
+  <Card title="Explanation" href="/explanation" icon="lightbulb">
+    Understand the design rationale and how the functions work.
+  </Card>
+</CardGroup>

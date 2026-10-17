@@ -1,0 +1,118 @@
+---
+title: Retry after a failure
+description: Explains how to re-run the work with the same key after an exception or rejection.
+---
+
+## Failed results are not cached [#policy]
+
+All three functions cache only successful results. Because no state is left when a synchronous exception or asynchronous rejection occurs, calling again with the same key runs it again. The callback's exception or rejection reason is passed to the caller as-is.
+
+## Retry after a synchronous exception [#sync]
+
+```ts
+import { callFnOnce } from "call-fn-once";
+
+const cacheMap: callFnOnce.CacheMap = new Map();
+let attempts = 0;
+
+function load() {
+  return callFnOnce(cacheMap, "config", () => {
+    attempts += 1;
+
+    if (attempts === 1) {
+      throw new Error("temporary error");
+    }
+
+    return { timeout: 3000 };
+  });
+}
+
+try {
+  load(); // the first call throws
+} catch (error) {
+  console.log(error); // Error: temporary error
+}
+
+const config = load(); // runs again, and the successful result is cached
+
+console.log(config); // { timeout: 3000 }
+```
+
+## Retry after an asynchronous rejection [#async]
+
+```ts
+import { callAsyncableFnOnce } from "call-fn-once";
+
+const cacheMap: callAsyncableFnOnce.CacheMap = new Map();
+let attempts = 0;
+
+async function load() {
+  return callAsyncableFnOnce(cacheMap, "user", async () => {
+    attempts += 1;
+
+    if (attempts === 1) {
+      throw new Error("temporary error");
+    }
+
+    return "tai-kun";
+  });
+}
+
+await load().catch((error: unknown) => error); // the first call rejects
+
+const user = await load(); // runs again, and the successful result is cached
+
+console.log(user); // "tai-kun"
+```
+
+If several callers were waiting while the work was in flight, the rejection is passed to all of them and the entry is removed from the cache. The next call starts a new execution.
+
+## Building in retry logic [#retry]
+
+`call-fn-once` does not manage retry counts or intervals. Leveraging the fact that failures are not cached, the caller can control retries.
+
+```ts
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  attempts: number,
+): Promise<T> {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await fn();
+    } catch (error) {
+      if (attempt >= attempts) {
+        throw error;
+      }
+    }
+  }
+}
+
+const user = await withRetry(() => load(), 3);
+```
+
+If you want to retry after a delay, add a wait before the call.
+
+## Handling errors that indicate misuse [#guard-errors]
+
+Misuse of the library itself is thrown synchronously as dedicated error classes. Handle them according to the cause.
+
+| Error class | Cause | Handling |
+| --- | --- | --- |
+| `ReentrantCallError` | Synchronous reentry with the same key | Split the keys |
+| `MismatchedCacheMapError` | A `CacheMap` used by another function was passed | Use a separate `Map` per function |
+| `InconsistentCacheError` | The in-flight record and internal state do not match | Do not edit the `CacheMap` directly |
+
+`ReentrantCallError` occurs when a callback for a key is called again with the same key while running. If you want to share a recursive computation, assign a different key per level.
+
+For handling `MismatchedCacheMapError`, see [Design the scope of a CacheMap](/how-to/manage-cache-maps); for the list of error classes, see [Error classes](/reference/errors).
+
+## Related pages [#related]
+
+<CardGroup cols={2}>
+  <Card title="Error classes" href="/reference/errors" icon="code">
+    Look up the thrown error classes and how to identify them.
+  </Card>
+  <Card title="Failure and retry policy" href="/explanation/error-policy" icon="lightbulb">
+    Understand the rationale for not caching failures.
+  </Card>
+</CardGroup>

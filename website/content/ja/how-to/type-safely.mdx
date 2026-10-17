@@ -1,0 +1,69 @@
+---
+title: 型引数で安全性を高める
+description: CacheMap<K, V> の型引数でキーと値を固定し、コンパイル時に誤りを見つける方法を説明します。
+---
+
+## 型引数を指定する [#specify]
+
+`CacheMap` の型引数 `K` と `V` を指定すると、同じキーには常に `V` 型の値が対応することをコンパイラーが検査できます。
+
+```ts
+import { callFnOnce } from "call-fn-once";
+
+const cacheMap: callFnOnce.CacheMap<string, number> = new Map();
+
+const value = callFnOnce(cacheMap, "answer", () => 42);
+
+console.log(value); // number
+```
+
+指定しない場合、`V` は `any` になり、実際に返る値と異なる型を書いてもコンパイルエラーになりません。
+
+```ts
+const cacheMap: callFnOnce.CacheMap = new Map();
+
+const value = callFnOnce(cacheMap, "answer", () => 42);
+const text: string = value; // コンパイルは通りますが、実行時の text は 42 です
+
+console.log(text);
+```
+
+## 戻り値の型はどう決まるか [#return-type]
+
+`callFnOnce` の戻り値の型はコールバック関数の戻り値ではなく `CacheMap` の型引数 `V` から決まります。同じキーには常に `V` が対応する、という関係だけがコンパイラーに伝わるためです。キーごとに値の型が変わる場合は、`V` に `unknown` を指定し、利用する箇所で型を絞り込んでください。
+
+```ts
+const cacheMap: callFnOnce.CacheMap<string, unknown> = new Map();
+
+const value = callFnOnce(cacheMap, "port", () => 3000);
+
+if (typeof value === "number") {
+  console.log(value + 1);
+}
+```
+
+## Thenable を扱う場合 [#thenables]
+
+`callAsyncableFnOnce` と `callAbortableFnOnce` では、`V` が Thenable の場合、戻り値の型は `MaybePromise<Awaited<V>>` になります。
+
+```ts
+type CacheMap = callAsyncableFnOnce.CacheMap<string, Promise<number>>;
+
+const cacheMap: CacheMap = new Map();
+
+const value = callAsyncableFnOnce(cacheMap, "key", async () => 42);
+
+// 実行中は Promise、解決後は number が返るため、両方を受け取れる型になります
+console.log(value); // Promise<number> | number
+```
+
+## 関連ページ [#related]
+
+<CardGroup cols={2}>
+  <Card title="callFnOnce" href="/reference/call-fn-once" icon="code">
+    型定義を含む、関数の仕様を確認できます。
+  </Card>
+  <Card title="callAsyncableFnOnce" href="/reference/call-asyncable-fn-once" icon="code">
+    Thenable を扱う関数の型定義を確認できます。
+  </Card>
+</CardGroup>

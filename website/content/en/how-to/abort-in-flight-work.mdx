@@ -1,0 +1,107 @@
+---
+title: Abort in-flight work
+description: Explains how to pass an AbortSignal to abort an in-flight fetch and the like.
+---
+
+## Use the callback's signal [#internal-signal]
+
+The callback of `callAbortableFnOnce` receives an `AbortSignal` for aborting internal work. Pass this signal to abort-aware APIs such as `fetch`, not the caller's signal.
+
+```ts
+import { callAbortableFnOnce } from "call-fn-once";
+
+const cacheMap: callAbortableFnOnce.CacheMap = new Map();
+const controller = new AbortController();
+
+const data = callAbortableFnOnce(
+  cacheMap,
+  "user",
+  async (signal) => {
+    const response = await fetch("https://example.com/user", { signal });
+
+    return response.json();
+  },
+  controller.signal,
+);
+
+controller.abort();
+await data.catch((error: unknown) => error); // AbortError
+```
+
+:::warning
+If you pass the caller's signal directly to `fetch`, the entire work stops the moment one person aborts, even if other callers are waiting. Use the signal received as the callback's argument.
+:::
+
+If you call with an already-aborted signal, it throws the abort reason without running the callback.
+
+## Share among multiple callers [#waiters]
+
+The following rules apply to waiters.
+
+- While multiple callers are waiting, even if one aborts, the work continues for the other callers.
+- Only when every caller has aborted is the internal work aborted and the cache discarded.
+- A call that joins an in-flight execution later also counts as a waiter.
+- The abort reason is passed per caller. It does not affect the results of other callers.
+
+```ts
+async function fetchData(signal: AbortSignal) {
+  const response = await fetch("https://example.com/data", { signal });
+
+  return response.json();
+}
+
+const cacheMap: callAbortableFnOnce.CacheMap = new Map();
+
+const controller1 = new AbortController();
+const controller2 = new AbortController();
+
+const first = callAbortableFnOnce(cacheMap, "data", fetchData, controller1.signal);
+const second = callAbortableFnOnce(cacheMap, "data", fetchData, controller2.signal);
+
+controller1.abort();
+
+await first.catch((error: unknown) => error); // receives the abort reason
+console.log(await second); // the work continues for controller2
+```
+
+## When calls without a signal are mixed in [#without-signal]
+
+If you call without specifying a signal, a dummy signal that never aborts is registered and counted as a waiter.
+
+```ts
+// Background prefetch (does not abort)
+const prefetch = callAbortableFnOnce(cacheMap, "data", fetchData);
+
+// A call for displaying the screen (can abort)
+const display = callAbortableFnOnce(cacheMap, "data", fetchData, controller.signal);
+
+controller.abort(); // not everyone has aborted, so the work continues
+console.log(await prefetch); // the result is available
+```
+
+## Settled values and aborted signals [#settled]
+
+After resolution, a call returns the cached value directly rather than a `Promise`. However, if an already-aborted signal is passed, it throws the abort reason even if a cached value exists.
+
+```ts
+const controller = new AbortController();
+
+console.log(callAbortableFnOnce(cacheMap, "data", fetchData)); // the cached value
+
+controller.abort();
+
+await callAbortableFnOnce(cacheMap, "data", fetchData, controller.signal).catch(
+  (error: unknown) => error, // the abort reason
+);
+```
+
+## Related pages [#related]
+
+<CardGroup cols={2}>
+  <Card title="callAbortableFnOnce" href="/reference/call-abortable-fn-once" icon="code">
+    Look up the argument and return value specifications.
+  </Card>
+  <Card title="Abort and waiter model" href="/explanation/abort-semantics" icon="lightbulb">
+    Understand how waiters are counted and how generation management works.
+  </Card>
+</CardGroup>

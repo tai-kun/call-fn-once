@@ -1,0 +1,40 @@
+---
+title: 用途に合う関数を選ぶ
+description: 同期・非同期・中断の要件から、使う関数を判断する手順を説明します。
+---
+
+## 判断の流れ [#decision]
+
+次の順に確認してください。
+
+1. 処理が同期だけで完結するなら、`callFnOnce` を使います。
+2. `Promise` や Thenable を返す可能性があるなら、`callAsyncableFnOnce` を使います。
+3. 呼び出し元から実行中の処理を中断する必要があるなら、`callAbortableFnOnce` を使います。
+
+`callAbortableFnOnce` は同期と非同期のどちらにも対応しているため、中断が必要な時点でこちらに切り替えてください。
+
+## 関数の比較 [#comparison]
+
+| 関数 | 扱える値 | 中断 | `CacheMap` に要求するメソッド |
+| --- | --- | --- | --- |
+| `callFnOnce` | 同期値 | 非対応 | `has`・`get`・`set` |
+| `callAsyncableFnOnce` | 同期値と Thenable | 非対応 | `has`・`get`・`set`・`delete` |
+| `callAbortableFnOnce` | 同期値と Thenable | 対応 | `has`・`get`・`set`・`delete` |
+
+`callAsyncableFnOnce` と `callAbortableFnOnce` が `delete` を要求するのは、解決に失敗したエントリーをキャッシュから取り除くためです。
+
+## 混同しやすい点 [#pitfalls]
+
+- `callFnOnce` に非同期関数を渡すと、`Promise` オブジェクト自体がキャッシュされます。解決待ちの共有や、拒否時の再実行は行われません。非同期処理を含む場合は `callAsyncableFnOnce` を使ってください。
+- `callAbortableFnOnce` は `callAsyncableFnOnce` の上位互換ではありません。待機者の管理や中断の世代管理のために内部の記録形式が異なり、同じ `Map` を使い回すことはできません。切り替えるときは新しい `Map` を用意してください。詳しくは [CacheMap のスコープを設計する](/how-to/manage-cache-maps)を参照してください。
+
+## 関連ページ [#related]
+
+<CardGroup cols={2}>
+  <Card title="キーを設計する" href="/how-to/design-keys" icon="key">
+    キャッシュを共有したい単位でキーを決めます。
+  </Card>
+  <Card title="リファレンス" href="/reference" icon="code">
+    3 つの関数の引数と戻り値の仕様を確認できます。
+  </Card>
+</CardGroup>

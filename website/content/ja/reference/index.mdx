@@ -1,27 +1,32 @@
 ---
 title: リファレンス
-description: 3 つの関数の引数や戻り値、使い分けを確認するための入り口です。
+description: 3 つの関数の仕様とエラークラスを確認するための入り口です。
+sidebar:
+  label: 概要
 ---
 
-用途に合わせて、読むページを選んでください。
+各ページは引数と戻り値の仕様、および動作の規則を記述しています。目的から関数を選びたい場合は[用途に合う関数を選ぶ](/how-to/choose-a-function)を参照してください。
 
 ## 一覧 [#overview]
 
-| 関数 | 用途 |
-| --- | --- |
-| `callFnOnce` | 同期処理の結果を共有したい場合 |
-| `callAsyncableFnOnce` | 非同期処理の解決待ちも共有したい場合 |
-| `callAbortableFnOnce` | さらに中断にも対応したい場合 |
+| 関数 | 扱える値 | 用途 |
+| --- | --- | --- |
+| `callFnOnce` | 同期値 | 同期処理の結果を共有します |
+| `callAsyncableFnOnce` | 同期値と非同期値 | 解決待ちの `Promise` も共有します |
+| `callAbortableFnOnce` | 同期値と非同期値 | さらに中断に対応します |
 
-<CardGroup cols={3}>
-  <Card title="callFnOnce" href="./call-fn-once" icon="code">
+<CardGroup cols={2}>
+  <Card title="callFnOnce" href="/reference/call-fn-once" icon="code">
     同期専用の仕様を確認します。
   </Card>
-  <Card title="callAsyncableFnOnce" href="./call-asyncable-fn-once" icon="code">
+  <Card title="callAsyncableFnOnce" href="/reference/call-asyncable-fn-once" icon="code">
     同期と非同期の両方に対応した仕様を確認します。
   </Card>
-  <Card title="callAbortableFnOnce" href="./call-abortable-fn-once" icon="code">
+  <Card title="callAbortableFnOnce" href="/reference/call-abortable-fn-once" icon="code">
     中断に対応した仕様を確認します。
+  </Card>
+  <Card title="エラークラス" href="/reference/errors" icon="code">
+    投げられるエラークラスと、その判定方法を確認します。
   </Card>
 </CardGroup>
 
@@ -38,3 +43,7 @@ callFnOnce({ cacheMap, key, fn });
 ```
 
 位置引数とオプション形式はキャッシュを共有します。呼び出し箇所ごとに読みやすいほうを選んでください。
+
+## エラークラス [#error-classes]
+
+3 つの関数は誤用や不整合を示す共通のエラークラスを同期的に投げます。一覧と判定方法は[エラークラス](/reference/errors)を参照してください。

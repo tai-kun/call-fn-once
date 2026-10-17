@@ -1,0 +1,76 @@
+---
+title: Error classes
+description: Explains the error classes thrown by call-fn-once and how to identify them.
+---
+
+## List of error classes [#error-classes]
+
+| Error class | Condition | Handling |
+| --- | --- | --- |
+| `MismatchedCacheMapError` | A `CacheMap` used by another function was passed | Use a separate `Map` per function |
+| `ReentrantCallError` | Synchronous reentry with the same key | Split the keys |
+| `InconsistentCacheError` | The in-flight record and internal state do not match | Do not edit the `CacheMap` directly |
+
+All extend `CallFnOnceError`.
+
+## How to identify [#instanceof]
+
+You can identify an error class with `instanceof`. Do not use message text for equality checks, as it is subject to translation and change.
+
+```ts errors.ts
+import {
+  callFnOnce,
+  InconsistentCacheError,
+  MismatchedCacheMapError,
+  ReentrantCallError,
+} from "call-fn-once";
+
+const cacheMap: callFnOnce.CacheMap = new Map();
+
+try {
+  callFnOnce(cacheMap, "key", () => "ok");
+} catch (error: unknown) {
+  if (error instanceof MismatchedCacheMapError) {
+    // This CacheMap is used by another function. Use a separate Map per function.
+  }
+
+  if (error instanceof InconsistentCacheError) {
+    // The cache is in an inconsistent state. Review direct manipulation.
+  }
+
+  if (error instanceof ReentrantCallError) {
+    // This is a synchronous re-call with the same key. Split the keys.
+  }
+}
+```
+
+## MismatchedCacheMapError [#mismatched-cache-map-error]
+
+Thrown synchronously when the same `Map` is passed to another function. Because the first function used registers ownership of the `Map`, this is detected even when keys do not overlap. For handling, see [Design the scope of a CacheMap](/how-to/manage-cache-maps).
+
+## ReentrantCallError [#reentrant-call-error]
+
+Thrown synchronously when the callback for a key is called again with the same key while it is running. Because the outer result is not cached yet, continuing execution would cause infinite recursion. If you want to share a recursive computation, assign a different key per level.
+
+## InconsistentCacheError [#inconsistent-cache-error]
+
+Thrown synchronously when `callAbortableFnOnce` finds an in-flight record (`busy: true`) but no waiter information exists. Because it is thrown without running the function again, the inconsistency is not resolved. This state can occur if the `CacheMap` is edited directly.
+
+## Error message language [#messages]
+
+Using `setErrorMessage`, you can register a per-language message for each class.
+
+```ts translate.ts
+import { MismatchedCacheMapError, setErrorMessage } from "call-fn-once";
+import { setGlobalConfig } from "valibot";
+
+setGlobalConfig({ lang: "ja" });
+
+setErrorMessage(
+  MismatchedCacheMapError,
+  "このキャッシュマップは別の関数で使用されています。",
+  "ja",
+);
+```
+
+The message language is taken from valibot's global configuration and defaults to `"en"`. Japanese messages are registered in advance. If you use `setGlobalConfig`, add valibot as a direct dependency of your project.

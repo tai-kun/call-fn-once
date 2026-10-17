@@ -1,0 +1,47 @@
+---
+title: キーとキャッシュの寿命
+description: キーの同一性、CacheMap の所有権、キャッシュが解放される仕組みを説明します。
+---
+
+## キーの同一性 [#identity]
+
+`CacheMap` の実体は `Map` または `WeakMap` です。どちらもキーの同一性を SameValueZero で判定するため、文字列や数値は値そのもので比較され、オブジェクトは参照で比較されます。内容が同じでも、呼び出しのたびに新しいオブジェクトを作ると別のキーとして扱われます。
+
+「同じ結果を共有する」とは同じ `CacheMap` に同じキーを渡すということです。キーの設計はキャッシュの設計そのものになります。どう設計するかは[キーを設計する](/how-to/design-keys)を参照してください。
+
+## CacheMap の所有権 [#ownership]
+
+3 つの関数は同じ `CacheMap` 型を使いますが、内部の記録形式が異なります。
+
+- `callFnOnce` は結果の値そのものを格納します。
+- `callAsyncableFnOnce` は値、または解決待ちの `Promise` を格納します。
+- `callAbortableFnOnce` は `busy` フラグを持つラッパーを格納します。
+
+型としては同じに見えるため、同じ `Map` を別の関数に渡してもコンパイルエラーにはなりません。しかし、記録形式が違うため、そのまま使うと解釈できない値になります。
+
+これを実行時に検出するために、最初に使った関数が `CacheMap` の所有権を内部の `WeakMap` に登録します。別の関数が同じ `Map` を使うと、キーによらず `MismatchedCacheMapError` を同期的に投げます。キーを分けても防げないのは、所有権がキー単位ではなく `Map` 単位で記録されるためです。
+
+## キャッシュの寿命 [#lifetime]
+
+キャッシュは、`CacheMap` が参照を保持している限り残ります。
+
+- キー単位で破棄する場合は `delete` を使います。
+- `Map` を破棄すると、その中のキャッシュもまとめて破棄されます。モジュールスコープの `Map` はアプリケーションが動いている間残り、関数の中で作った `Map` は関数を抜けて参照がなくなると回収の対象になります。
+- `WeakMap` を使うと、キーのオブジェクトが到達不能になった時点でエントリーが回収されます。
+
+`callAbortableFnOnce` の待機者の状態と所有権の記録も内部の `WeakMap` で管理されます。`CacheMap` を破棄すれば、これらの記録も一緒に解放されます。
+
+## 実行中と確定済み [#busy]
+
+`callAbortableFnOnce` は実行中のエントリーを `busy: true` と共有 `Promise` で記録し、確定すると `busy: false` と値に置き換えます。このフラグは中断の世代管理に使われる内部状態です。`CacheMap` を直接編集してこの記録を壊すと、次の呼び出しで `InconsistentCacheError` を投げることがあります。
+
+## 関連ページ [#related]
+
+<CardGroup cols={2}>
+  <Card title="CacheMap のスコープを設計する" href="/how-to/manage-cache-maps" icon="book-open">
+    Map を分ける基準や、キャッシュの破棄方法を確認します。
+  </Card>
+  <Card title="設計の背景" href="/explanation/design" icon="lightbulb">
+    3 つの関数に分けた理由を説明します。
+  </Card>
+</CardGroup>

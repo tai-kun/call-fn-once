@@ -1,0 +1,23 @@
+---
+title: Explanation
+description: Articles that help you understand the design rationale and how the library works.
+sidebar:
+  label: Overview
+---
+
+This section explains *why* `call-fn-once` is designed the way it is. If you need specific procedures, see the [How-to Guides](/how-to); for argument and return value specifications, see the [Reference](/reference).
+
+<CardGroup cols={2}>
+  <Card title="Design background" href="/explanation/design" icon="lightbulb">
+    Explains the problem it solves and why it was split into three functions.
+  </Card>
+  <Card title="Keys and cache lifetime" href="/explanation/cache-lifecycle" icon="lightbulb">
+    Explains key identity, ownership, and cache release.
+  </Card>
+  <Card title="Abort and waiter model" href="/explanation/abort-semantics" icon="lightbulb">
+    Explains how abort decisions and generation management work.
+  </Card>
+  <Card title="Failure and retry policy" href="/explanation/error-policy" icon="lightbulb">
+    Explains the decision not to cache failures and the intent of guard errors.
+  </Card>
+</CardGroup>

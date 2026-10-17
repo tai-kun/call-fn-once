@@ -1,0 +1,40 @@
+---
+title: Choose a function that fits your use case
+description: Explains the procedure for choosing a function from your sync, async, and abort requirements.
+---
+
+## Decision flow [#decision]
+
+Check in the following order.
+
+1. If the work is entirely synchronous, use `callFnOnce`.
+2. If it may return a `Promise` or Thenable, use `callAsyncableFnOnce`.
+3. If callers need to abort in-flight work, use `callAbortableFnOnce`.
+
+`callAbortableFnOnce` supports both synchronous and asynchronous work, so switch to it once you need aborting.
+
+## Comparing the functions [#comparison]
+
+| Function | Values handled | Abort | Methods required from `CacheMap` |
+| --- | --- | --- | --- |
+| `callFnOnce` | Synchronous values | Not supported | `has`, `get`, `set` |
+| `callAsyncableFnOnce` | Synchronous values and Thenables | Not supported | `has`, `get`, `set`, `delete` |
+| `callAbortableFnOnce` | Synchronous values and Thenables | Supported | `has`, `get`, `set`, `delete` |
+
+`callAsyncableFnOnce` and `callAbortableFnOnce` require `delete` in order to remove entries that fail to settle from the cache.
+
+## Common pitfalls [#pitfalls]
+
+- If you pass an async function to `callFnOnce`, the `Promise` object itself is cached. There is no sharing of pending resolution or re-execution on rejection. If asynchronous work is involved, use `callAsyncableFnOnce`.
+- `callAbortableFnOnce` is not a drop-in superset of `callAsyncableFnOnce`. Because the internal record format differs for waiter management and abort generation management, the same `Map` cannot be reused. Prepare a new `Map` when switching. See [Design the scope of a CacheMap](/how-to/manage-cache-maps) for details.
+
+## Related pages [#related]
+
+<CardGroup cols={2}>
+  <Card title="Design keys" href="/how-to/design-keys" icon="key">
+    Define keys around the unit over which you want to share the cache.
+  </Card>
+  <Card title="Reference" href="/reference" icon="code">
+    Look up the arguments and return values of the three functions.
+  </Card>
+</CardGroup>

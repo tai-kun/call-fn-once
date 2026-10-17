@@ -1,0 +1,32 @@
+---
+title: ハウツーガイド
+description: 目的別に、実現したいことからページを選べる手順の一覧です。
+sidebar:
+  label: 概要
+---
+
+このセクションは特定の目的を実現するための手順をまとめています。初めての方は先に[チュートリアル](/tutorial)を読むと全体像をつかみやすくなります。
+
+<CardGroup cols={2}>
+  <Card title="インストールする" href="/how-to/install" icon="download">
+    パッケージを追加し、対応する環境を確認します。
+  </Card>
+  <Card title="用途に合う関数を選ぶ" href="/how-to/choose-a-function" icon="route">
+    同期・非同期・中断の要件から、使う関数を決めます。
+  </Card>
+  <Card title="キーを設計する" href="/how-to/design-keys" icon="key">
+    キャッシュを共有したい単位でキーを決めます。
+  </Card>
+  <Card title="CacheMap のスコープを設計する" href="/how-to/manage-cache-maps" icon="layers">
+    Map を分ける基準や、キャッシュの破棄方法を確認します。
+  </Card>
+  <Card title="失敗を再試行する" href="/how-to/handle-failures" icon="refresh-cw">
+    例外や拒否が起きた後に、同じキーで処理をやり直します。
+  </Card>
+  <Card title="実行中の処理を中断する" href="/how-to/abort-in-flight-work" icon="octagon-x">
+    AbortSignal を渡して、実行中の fetch などを中断します。
+  </Card>
+  <Card title="型引数で安全性を高める" href="/how-to/type-safely" icon="braces">
+    キーと値の型を固定し、コンパイル時に誤りを見つけます。
+  </Card>
+</CardGroup>

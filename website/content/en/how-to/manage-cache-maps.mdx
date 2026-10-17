@@ -1,0 +1,102 @@
+---
+title: Design the scope of a CacheMap
+description: Explains how to split Maps, when to use a WeakMap, and how to discard caches.
+---
+
+## What is a CacheMap [#what-is]
+
+A `CacheMap` is an object that holds execution results, and is really a `Map` or a `WeakMap`. `callFnOnce` requires only `has`, `get`, and `set`, while `callAsyncableFnOnce` and `callAbortableFnOnce` also require `delete`.
+
+## Split Maps by purpose [#separate-maps]
+
+Create a `CacheMap` for each scope over which you want to share results. Putting caches with different purposes in the same `Map` misaligns the timing of holding and discarding references, making them hard to manage.
+
+```ts
+// Configuration values shared across the app
+const configMap: callFnOnce.CacheMap<string, object> = new Map();
+
+// A temporary cache created per request
+function handleRequest(request: Request) {
+  const requestMap: callFnOnce.CacheMap = new Map();
+
+  return callFnOnce(requestMap, "session", () => loadSession(request));
+}
+```
+
+For something shared across the app, create the `Map` at module scope. For a unit such as a request or a screen, creating it within that unit means the cache is no longer needed once the unit ends.
+
+## Split Maps by function [#one-function-per-map]
+
+The same `Map` cannot be passed to multiple functions. Create a new `Map` for each function.
+
+```ts
+// NG: the same CacheMap is used by multiple functions
+const cacheMap = new Map();
+
+callFnOnce(cacheMap, "a", () => 1);
+callAsyncableFnOnce(cacheMap, "b", async () => 2); // MismatchedCacheMapError
+```
+
+```ts
+// OK: a CacheMap is created for each function
+const syncMap = new Map();
+const asyncMap = new Map();
+
+callFnOnce(syncMap, "a", () => 1);
+callAsyncableFnOnce(asyncMap, "b", async () => 2);
+```
+
+Because the internal record format differs per function, the first function used registers ownership of the `Map`. If another function uses the same `Map`, it synchronously throws `MismatchedCacheMapError` regardless of the key. Splitting keys does not prevent this.
+
+## Discard a cache [#discard]
+
+To discard a cache per key, use `delete`. If you hold the `Map` with its concrete `Map` type, you can call `delete` directly.
+
+```ts
+const cacheMap = new Map<string, number>();
+
+callFnOnce(cacheMap, "key", () => 1);
+
+cacheMap.delete("key");
+```
+
+Discarding the `Map` itself discards all caches within it together. Once the function that uses the cache finishes and no reference to the `Map` remains, it becomes eligible for garbage collection.
+
+`callAbortableFnOnce` manages waiter state and ownership records in internal `WeakMap`s. These are also released when the `Map` is discarded.
+
+## Using a WeakMap [#using-weakmap]
+
+Use a `WeakMap` when you want the cache to be released automatically once the key object is no longer needed.
+
+```ts
+const cacheMap: callAbortableFnOnce.CacheMap<Element, string> = new WeakMap();
+
+const element = document.querySelector("#target");
+
+if (element) {
+  const result = callAbortableFnOnce(cacheMap, element, (signal) => {
+    return fetchText(element, signal);
+  });
+
+  console.log(result);
+}
+```
+
+:::note
+A `WeakMap` has the following limitations.
+
+- Only objects and symbols can be used as keys. Strings and numbers cannot.
+- `size` and `clear` are unavailable, and entries cannot be enumerated.
+- An entry is collected automatically once the key object becomes unreachable.
+:::
+
+## Related pages [#related]
+
+<CardGroup cols={2}>
+  <Card title="Design keys" href="/how-to/design-keys" icon="key">
+    Define keys around the unit over which you want to share the cache.
+  </Card>
+  <Card title="Keys and cache lifetime" href="/explanation/cache-lifecycle" icon="lightbulb">
+    Understand key identity and how long a cache is retained.
+  </Card>
+</CardGroup>

@@ -1,0 +1,79 @@
+---
+title: キーを設計する
+description: キャッシュを共有したい単位でキーを決める方法を説明します。
+---
+
+## キーは共有の単位 [#shared-unit]
+
+同じ `CacheMap` と同じキーの組み合わせが同じ結果を指します。どの単位で結果を共有したいかを決めることが、キャッシュ設計の出発点になります。
+
+キーに使える型に制限はありません。文字列、数値、オブジェクトなど、`Map` のキーとして使える値なら何でも指定できます。
+
+## キーの種類 [#key-types]
+
+| キーの種類 | 適した場面 | 例 |
+| --- | --- | --- |
+| 文字列 | 名前を付けた単一の処理 | `"config"`、`"user:1"` |
+| オブジェクト | インスタンスやリクエストに紐づく処理 | `request`、`session` |
+
+複数の引数からキーを作る場合は、引数の組み合わせを一意に表す文字列にします。
+
+```ts
+const cacheMap: callFnOnce.CacheMap = new Map();
+
+function getUser(userId: number) {
+  return callFnOnce(cacheMap, `user:${userId}`, () => fetchUser(userId));
+}
+
+getUser(1); // "user:1" がキーになります
+getUser(2); // "user:2" は別のキーになります
+```
+
+## 参照が安定したキーを使う [#stable-reference]
+
+オブジェクトをキーにする場合、`Map` は参照で同一性を判定します。内容が同じでも、呼び出しのたびに新しいオブジェクトを作ると別のキーとして扱われます。
+
+```ts
+// NG: 毎回新しいオブジェクトを作っているため、キャッシュが共有されません
+callFnOnce(cacheMap, { userId: 1 }, () => 1);
+callFnOnce(cacheMap, { userId: 1 }, () => 1); // 別のキーとして扱われます
+```
+
+```ts
+// OK: 同じ参照を使い回すと、キャッシュが共有されます
+const key = { userId: 1 };
+
+callFnOnce(cacheMap, key, () => 1);
+callFnOnce(cacheMap, key, () => 1); // 同じキーとして扱われます
+```
+
+:::tip
+内容が同じオブジェクトを同じキーとして扱いたい場合は、文字列に変換するか、参照を使い回してください。
+:::
+
+## 目的が違う処理でキーを分ける [#avoid-collisions]
+
+汎用的なキー名は目的の異なる処理と衝突します。同じ `CacheMap` を使う場合は、キーが処理の内容を表し、一意になるようにしてください。
+
+```ts
+// NG: 目的の異なる処理が同じ "data" というキーを使っています
+callFnOnce(cacheMap, "data", () => fetchUserList());
+callFnOnce(cacheMap, "data", () => fetchSettings()); // ユーザー一覧が返ります
+```
+
+```ts
+// OK: 処理ごとに異なるキーを使っています
+callFnOnce(cacheMap, "users:list", () => fetchUserList());
+callFnOnce(cacheMap, "settings", () => fetchSettings());
+```
+
+## 関連ページ [#related]
+
+<CardGroup cols={2}>
+  <Card title="CacheMap のスコープを設計する" href="/how-to/manage-cache-maps" icon="layers">
+    Map を分ける基準や、キャッシュの破棄方法を確認します。
+  </Card>
+  <Card title="キーとキャッシュの寿命" href="/explanation/cache-lifecycle" icon="lightbulb">
+    キーの同一性とキャッシュが保持される期間を理解できます。
+  </Card>
+</CardGroup>

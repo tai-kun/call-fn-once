@@ -1,13 +1,13 @@
 ---
 title: callAsyncableFnOnce
-description: The spec of the function that accepts sync and async values and shares the pending Promise.
+description: The specification of the function that accepts both synchronous and asynchronous values and shares an in-flight Promise.
 ---
 
-Runs the callback once per key and caches the result. It accepts both sync and async values. For async values, the pending `Promise` is shared, and the settled value is reused afterwards.
+Runs the callback once per specified key and caches the result. It accepts both synchronous and asynchronous values. For asynchronous values it shares the in-flight `Promise`, and after resolution it returns the settled value.
 
 ## Usage [#usage]
 
-Sync values behave the same as `callFnOnce`. Returning an async value shares the same `Promise` until it settles.
+Synchronous values are handled the same as with `callFnOnce`. Returning an asynchronous value shares the same `Promise` until it resolves.
 
 ```ts
 import { callAsyncableFnOnce } from "call-fn-once";
@@ -20,7 +20,7 @@ const pending = callAsyncableFnOnce(cacheMap, "user", async () => {
 });
 ```
 
-The options form returns the same result.
+The options form yields the same result.
 
 ```ts options.ts
 import { callAsyncableFnOnce } from "call-fn-once";
@@ -36,19 +36,20 @@ const pending = callAsyncableFnOnce({
 
 ## Behavior [#behavior]
 
-### Sync values [#sync-values]
+### Synchronous values [#sync-values]
 
-- Sync values are cached as returned.
-- `undefined` is cached correctly.
-- Sync exceptions are not cached. The next call runs the function again.
+- It caches the execution result of a synchronous value as-is.
+- It caches `undefined` correctly too.
+- It does not cache a synchronous exception. The next call runs it again.
 
-### Async values [#async-values]
+### Asynchronous values [#async-values]
 
-- Concurrent calls before settlement are merged into a single run, so the callback runs only once.
-- After settlement, the cache is replaced with the settled value, and later calls return the value directly instead of a `Promise`.
-- On rejection the cache is discarded, so the next call can retry. Concurrent waiters all receive the rejection.
-- Non-`Promise` thenables are treated as async too.
-- Using the same `CacheMap` from another function throws `MismatchedCacheMapError` synchronously, regardless of the key. Use a separate `Map` per function.
+- Concurrent calls before resolution are combined into a single execution, and the callback runs only once.
+- After resolution, the cache is replaced with the settled value, and the next call returns the value directly rather than a `Promise`.
+- On rejection, the cache is discarded, so the next call can run again. A rejection is passed to all waiting calls.
+- Thenables other than `Promise` are also treated as asynchronous.
+- The same key of the same `Map` cannot be called again during the callback's synchronous execution. Reentry synchronously throws `ReentrantCallError`. A call that joins later to share an in-flight `Promise` is not subject to this.
+- If the same `CacheMap` is used by another function, it synchronously throws `MismatchedCacheMapError` regardless of the key. Split the `Map` per function.
 
 ```ts
 import { callAsyncableFnOnce } from "call-fn-once";
@@ -72,20 +73,20 @@ const second = Promise.resolve(
 
 await first;
 await second;
-console.log(callCount);
+console.log(callCount); // 1
 
 const cached = callAsyncableFnOnce(cacheMap, "key", () => {
-  throw new Error("Never reruns after settlement");
+  throw new Error("it does not run again after resolution");
 });
 
-console.log(cached);
+console.log(cached); // "ok"
 ```
 
 :::note
-An `undefined` settled value is also cached as the settled value.
+Even when the resolved value is `undefined`, it is cached as the settled value.
 :::
 
-## Types [#types]
+## Type definitions [#types]
 
 <TypeTable
   type={{
@@ -93,26 +94,25 @@ An `undefined` settled value is also cached as the settled value.
       type: "callAsyncableFnOnce.CacheMap<K, V>",
       required: true,
       description:
-        "An object that holds results. Only has, get, set, and delete are required, so Map and WeakMap both work.",
+        "The object that holds execution results. Because it requires only has, get, set, and delete, either a Map or a WeakMap can be used.",
     },
     key: {
       type: "K",
       required: true,
-      description:
-        "A unique key identifying the cache entry. Its type comes from the K type argument of CacheMap.",
+      description: "A unique key that identifies the cache. Its type is determined by the CacheMap type argument K.",
     },
     fn: {
       type: "() => V",
       required: true,
       description:
-        "The callback function to run. It can return either a sync or an async value. Its return value must match the V type argument of CacheMap.",
+        "The callback to run. It can return either a synchronous or an asynchronous value. Its return value must match the CacheMap type argument V.",
     },
   }}
 />
 
-`callAsyncableFnOnce.CacheMap` requires `has()`, `get()`, `set()`, and `delete()`. Both `Map` and `WeakMap` can be passed directly. `WeakMap` keys must be objects.
+`callAsyncableFnOnce.CacheMap` requires `has()`, `get()`, `set()`, and `delete()`. You can pass a `Map` or a `WeakMap` directly. Only objects can be used as `WeakMap` keys.
 
-The return type is `callAsyncableFnOnce.Return<V>`. When `V` is a thenable it wraps the resolved value in `MaybePromise`; otherwise it stays as `V`.
+The return type is `callAsyncableFnOnce.Return<V>`. When `V` is a Thenable, it becomes the resolved value wrapped in `MaybePromise`; otherwise it stays as `V`.
 
 ```ts types.ts
 import { callAsyncableFnOnce } from "call-fn-once";
@@ -126,46 +126,15 @@ const asyncValue: number | Promise<number> = callAsyncableFnOnce(asyncCacheMap, 
 );
 ```
 
-### Type inference [#type-inference]
-
-The return type comes from the `V` type argument of `CacheMap`, not from the callback's return value. The `key` type also comes from the `K` type argument of `CacheMap`.
-
-Inferring the return type from the callback would let callers use a different type for the same key on each call, so the following code would type-check. The second call is typed as `string`, but at runtime it returns the `number` `42` cached by the first call.
-
-```ts unsafe.ts
-import { callAsyncableFnOnce } from "call-fn-once";
-
-const cacheMap: callAsyncableFnOnce.CacheMap = new Map();
-
-const value1: number = callAsyncableFnOnce(cacheMap, "key", () => 42);
-console.log(value1); // 42
-
-const value2: string = callAsyncableFnOnce(cacheMap, "key", () => "42");
-console.log(value2); // 42
-```
-
-To get the constraint, specify the key and value types with the `CacheMap` type arguments. With `CacheMap<string, number>`, returning a `string` for the same key is a compile error.
-
-```ts typed.ts
-import { callAsyncableFnOnce } from "call-fn-once";
-
-const cacheMap: callAsyncableFnOnce.CacheMap<string, number> = new Map();
-
-const value1: number = callAsyncableFnOnce(cacheMap, "key", () => 42);
-
-// Type error: the same key can only be associated with a number.
-const value2: string = callAsyncableFnOnce(cacheMap, "key", () => "42");
-```
-
-If you write `CacheMap` without its type arguments, `V` is `any`, so specify them when you need the constraint.
+The return type is determined by the `CacheMap` type argument `V`, not by the callback's return value. For how to specify `K` and `V` to prevent compile-time mistakes, see [Improve safety with type arguments](/how-to/type-safely).
 
 ## Related pages [#related]
 
 <CardGroup cols={2}>
-  <Card title="callFnOnce" href="./call-fn-once" icon="code">
-    Check the spec for sync-only work.
+  <Card title="callFnOnce" href="/reference/call-fn-once" icon="code">
+    Look up the specification for handling only synchronous work.
   </Card>
-  <Card title="callAbortableFnOnce" href="./call-abortable-fn-once" icon="code">
-    Check the spec for work that needs aborting.
+  <Card title="callAbortableFnOnce" href="/reference/call-abortable-fn-once" icon="code">
+    Look up the specification when you need abort support.
   </Card>
 </CardGroup>

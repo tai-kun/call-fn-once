@@ -1,27 +1,27 @@
 ---
 title: Call Fn Once
-description: A small TypeScript utility that runs a callback function only once per key and shares the result.
+description: A small TypeScript utility that runs a callback function once per key and shares the result.
 ---
 
-A small TypeScript utility that runs a callback function only once per key, then caches and shares the result. It provides three functions for different use cases.
+A small TypeScript utility that runs a callback function once per key, caches the result, and shares it. It provides three functions you can choose from to match your use case.
 
 ## Features [#features]
 
-- Manage results with a key and `Map` combination.
-- Share sync values directly and async values as a pending `Promise`.
-- Never cache failures, so the next call can retry.
-- In the abortable variant, abort the underlying work only when every waiting caller has aborted.
-- Only depends on `abort-signal-utils` and `maypromise`, with no framework dependencies.
+- Manages execution results with a combination of a key and a `Map`.
+- Shares synchronous values as-is and in-flight `Promise`s for asynchronous values.
+- Does not cache failed results, so the next call can run again.
+- In the abortable function, internal work is aborted only when every waiting caller has aborted.
+- Lightweight dependencies and no dependency on a specific framework.
 
-## Choosing a function [#choosing-a-function]
+## Choosing among the three functions [#choosing-a-function]
 
 | Function | Use case | Sync | Async | Abort |
 | --- | --- | --- | --- | --- |
-| `callFnOnce` | Memoize sync work | ○ | — | — |
-| `callAsyncableFnOnce` | Mix sync and async work | ○ | ○ | — |
-| `callAbortableFnOnce` | Abort from the outside | ○ | ○ | ○ |
+| `callFnOnce` | Memoize synchronous work | ○ | — | — |
+| `callAsyncableFnOnce` | Mix of synchronous and asynchronous work | ○ | ○ | — |
+| `callAbortableFnOnce` | Work that needs to support abort | ○ | ○ | ○ |
 
-When in doubt, choose `callFnOnce` for sync-only work, `callAsyncableFnOnce` when async work is involved, and `callAbortableFnOnce` when callers need to abort.
+If you are unsure which to choose, use `callFnOnce` for purely synchronous work, `callAsyncableFnOnce` when asynchronous work is involved, and `callAbortableFnOnce` when callers must be able to abort. For a detailed walkthrough, see [Choose a function that fits your use case](/how-to/choose-a-function).
 
 ## Quick start [#quick-start]
 
@@ -35,25 +35,29 @@ const first = callFnOnce(cacheMap, "config", () => {
 });
 
 const second = callFnOnce(cacheMap, "config", () => {
-  throw new Error("Never runs the second time");
+  throw new Error("the second call never runs");
 });
 
 console.log(first === second);
 ```
 
-The second call skips the callback and returns the first result as-is. See the quick start for the full walkthrough.
+The second call does not run the callback and returns the first result as-is. If you prefer to learn by doing, start with the tutorial.
+
+## Documentation structure [#documentation]
+
+This documentation is divided into four sections by purpose. There is no prescribed reading order, so start with the section that fits your goal.
 
 <CardGroup cols={2}>
-  <Card title="Installation" href="./getting-started/installation" icon="download">
-    Learn how to add the package and check the requirements.
+  <Card title="Tutorial" href="/tutorial" icon="rocket">
+    Learn the basics of the three functions step by step, hands-on.
   </Card>
-  <Card title="Quick Start" href="./getting-started/quick-start" icon="rocket">
-    Learn the positional and options forms of the basic usage.
+  <Card title="How-to Guides" href="/how-to" icon="book-open">
+    Find task-oriented procedures such as key design and error handling.
   </Card>
-  <Card title="Reference" href="./reference" icon="code">
-    Check the arguments and return values of the three functions in detail.
+  <Card title="Reference" href="/reference" icon="code">
+    Look up the arguments and return values of the three functions.
   </Card>
-  <Card title="Guides" href="./guides" icon="book-open">
-    Learn practical topics such as key design and error handling.
+  <Card title="Explanation" href="/explanation" icon="lightbulb">
+    Understand the design rationale and how the functions work.
   </Card>
 </CardGroup>

@@ -46,9 +46,9 @@ const pending = callAsyncableFnOnce({
 
 - 解決前の並行呼び出しは 1 回の実行にまとめられ、コールバック関数は一度だけ実行されます。
 - 解決後はキャッシュが確定値に置き換わり、次回の呼び出しでは `Promise` ではなく値を直接返します。
-- 拒否時はキャッシュを破棄するため、次回の呼び出しで再実行できます。並行呼び出しの拒否は、待機中のすべての呼び出しに伝わります。
+- 拒否時はキャッシュを破棄するため、次回の呼び出しで再実行できます。並行呼び出しの拒否は待機中のすべての呼び出しに伝わります。
 - `Promise` 以外の Thenable も非同期として扱います。
-- 同一 `Map` の同一キーは、コールバック関数の同期的な実行中に再び呼び出せません。再入は `ReentrantCallError` を同期的に投げます。解決待ちの共有のために後から参加する呼び出しは対象外です。詳しくはエラー処理の基本方針を見てください。
+- 同一 `Map` の同一キーはコールバック関数の同期的な実行中に再び呼び出せません。再入は `ReentrantCallError` を同期的に投げます。解決待ちの共有のために後から参加する呼び出しは対象外です。
 - 別の関数で同じ `CacheMap` を使うと、キーによらず `MismatchedCacheMapError` を同期的に投げます。関数ごとに `Map` を分けてください。
 
 ```ts
@@ -73,13 +73,13 @@ const second = Promise.resolve(
 
 await first;
 await second;
-console.log(callCount);
+console.log(callCount); // 1
 
 const cached = callAsyncableFnOnce(cacheMap, "key", () => {
   throw new Error("解決後は再実行されません");
 });
 
-console.log(cached);
+console.log(cached); // "ok"
 ```
 
 :::note
@@ -126,46 +126,15 @@ const asyncValue: number | Promise<number> = callAsyncableFnOnce(asyncCacheMap, 
 );
 ```
 
-### 型推論 [#type-inference]
-
-戻り値の型は、コールバック関数が返す値ではなく、`CacheMap` の型引数 `V` から決まります。`key` の型も `CacheMap` の型引数 `K` で制約されます。
-
-仮にコールバック関数の戻り値から型を推論した場合、同じキーに対して呼び出しごとに異なる戻り値の型で呼び出せてしまいます。次のコードでは、2 回目の呼び出しは `string` 型と推論されますが、実際に返るのは 1 回目にキャッシュされた `number` の `42` です。
-
-```ts unsafe.ts
-import { callAsyncableFnOnce } from "call-fn-once";
-
-const cacheMap: callAsyncableFnOnce.CacheMap = new Map();
-
-const value1: number = callAsyncableFnOnce(cacheMap, "key", () => 42);
-console.log(value1); // 42
-
-const value2: string = callAsyncableFnOnce(cacheMap, "key", () => "42");
-console.log(value2); // 42
-```
-
-この制約を有効にするには、`CacheMap` の型引数でキーと値を指定します。たとえば `CacheMap<string, number>` を指定すると、同じキーに対して `string` を返すコールバック関数はコンパイルエラーになります。
-
-```ts typed.ts
-import { callAsyncableFnOnce } from "call-fn-once";
-
-const cacheMap: callAsyncableFnOnce.CacheMap<string, number> = new Map();
-
-const value1: number = callAsyncableFnOnce(cacheMap, "key", () => 42);
-
-// 型エラー: 同じキーに対して string は返せません。
-const value2: string = callAsyncableFnOnce(cacheMap, "key", () => "42");
-```
-
-`CacheMap` とだけ書いて型引数を省略すると、`V` は `any` になり、制約がかかりません。型の制約が必要な場合は型引数を指定してください。
+戻り値の型はコールバック関数の戻り値ではなく `CacheMap` の型引数 `V` から決まります。`K` と `V` を指定してコンパイル時の誤りを防ぐ方法は、[型引数で安全性を高める](/how-to/type-safely)を参照してください。
 
 ## 関連ページ [#related]
 
 <CardGroup cols={2}>
-  <Card title="callFnOnce" href="./call-fn-once" icon="code">
+  <Card title="callFnOnce" href="/reference/call-fn-once" icon="code">
     同期処理だけを扱う場合の仕様を確認します。
   </Card>
-  <Card title="callAbortableFnOnce" href="./call-abortable-fn-once" icon="code">
+  <Card title="callAbortableFnOnce" href="/reference/call-abortable-fn-once" icon="code">
     中断に対応する必要がある場合の仕様を確認します。
   </Card>
 </CardGroup>

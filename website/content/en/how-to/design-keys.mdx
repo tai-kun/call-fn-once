@@ -1,0 +1,79 @@
+---
+title: Design keys
+description: Explains how to define keys around the unit over which you want to share the cache.
+---
+
+## A key is a unit of sharing [#shared-unit]
+
+The same `CacheMap` and the same key together refer to the same result. Deciding over which unit you want to share a result is the starting point of cache design.
+
+There is no restriction on the types usable as keys. You can specify anything usable as a `Map` key, such as a string, number, or object.
+
+## Kinds of keys [#key-types]
+
+| Kind of key | Suitable for | Example |
+| --- | --- | --- |
+| String | A single piece of work given a name | `"config"`, `"user:1"` |
+| Object | Work tied to an instance or request | `request`, `session` |
+
+When building a key from multiple arguments, use a string that uniquely represents the combination of arguments.
+
+```ts
+const cacheMap: callFnOnce.CacheMap = new Map();
+
+function getUser(userId: number) {
+  return callFnOnce(cacheMap, `user:${userId}`, () => fetchUser(userId));
+}
+
+getUser(1); // "user:1" becomes the key
+getUser(2); // "user:2" is a different key
+```
+
+## Use keys with a stable reference [#stable-reference]
+
+When using an object as a key, `Map` determines identity by reference. Even if the contents are the same, creating a new object on each call makes it a different key.
+
+```ts
+// NG: a new object is created each time, so the cache is not shared
+callFnOnce(cacheMap, { userId: 1 }, () => 1);
+callFnOnce(cacheMap, { userId: 1 }, () => 1); // treated as a different key
+```
+
+```ts
+// OK: reusing the same reference shares the cache
+const key = { userId: 1 };
+
+callFnOnce(cacheMap, key, () => 1);
+callFnOnce(cacheMap, key, () => 1); // treated as the same key
+```
+
+:::tip
+If you want objects with the same contents to be treated as the same key, either convert them to a string or reuse the same reference.
+:::
+
+## Separate keys for different purposes [#avoid-collisions]
+
+Generic key names collide with work that has a different purpose. When using the same `CacheMap`, make sure keys represent the work and are unique.
+
+```ts
+// NG: work with different purposes uses the same "data" key
+callFnOnce(cacheMap, "data", () => fetchUserList());
+callFnOnce(cacheMap, "data", () => fetchSettings()); // returns the user list
+```
+
+```ts
+// OK: each piece of work uses a different key
+callFnOnce(cacheMap, "users:list", () => fetchUserList());
+callFnOnce(cacheMap, "settings", () => fetchSettings());
+```
+
+## Related pages [#related]
+
+<CardGroup cols={2}>
+  <Card title="Design the scope of a CacheMap" href="/how-to/manage-cache-maps" icon="layers">
+    Find criteria for splitting Maps and how to discard caches.
+  </Card>
+  <Card title="Keys and cache lifetime" href="/explanation/cache-lifecycle" icon="lightbulb">
+    Understand key identity and how long a cache is retained.
+  </Card>
+</CardGroup>

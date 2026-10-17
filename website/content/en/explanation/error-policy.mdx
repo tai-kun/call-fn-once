@@ -1,0 +1,41 @@
+---
+title: Failure and retry policy
+description: Explains the decision not to cache failures and the intent of the guards that prevent misuse.
+---
+
+## Failure leaves no state [#no-failure-state]
+
+All three functions cache only successful results. Whether from a synchronous exception or an asynchronous rejection, a failed call is removed from the cache and its state returns to "not executed".
+
+Failures are not cached to leave the caller a chance to retry. If the result of a temporary failure were fixed as a settled value, all subsequent calls would keep failing. The retry count, interval, and cutoff conditions differ per application, so the library handles reporting the failure and leaves retries to the caller.
+
+In the implementation, exceptions from the callback are thrown as-is without wrapping, and asynchronous rejection reasons are also passed through. This lets the caller continue using existing error handling.
+
+## Why reentrancy is prevented [#reentrancy]
+
+If the callback for a key is called again with the same key while it is running, the outer result is not cached yet. Running it as-is would make the inner call re-enter with the same key, causing infinite recursion.
+
+To prevent this, reentrancy during synchronous execution synchronously throws `ReentrantCallError`. On the other hand, a later call that merely wants to use the in-flight `Promise` is treated as a waiter, not a reentrancy. The rule "only one execution is allowed" holds by distinguishing reentrancy during synchronous execution from asynchronous waiting.
+
+If you want to share a recursive computation, assign a different key per level. Using the same key is rejected as reentrancy.
+
+## Detecting incorrect CacheMap sharing [#ownership]
+
+The three functions use the same `CacheMap` type, but their internal record formats differ. Since the types cannot distinguish them, the first function used records ownership of the `Map`, and any other function that uses the same `Map` throws `MismatchedCacheMapError`. Detection is per `Map` rather than per key because the difference in record format concerns the entire `Map`.
+
+For details of the mechanism, see [Keys and cache lifetime](/explanation/cache-lifecycle).
+
+## The role of guard errors [#guard-errors]
+
+`ReentrantCallError`, `MismatchedCacheMapError`, and `InconsistentCacheError` indicate misuse of the library rather than a failure of the callback. Whereas callback failures are passed through as-is, these are thrown synchronously as dedicated classes, so they can be handled separately from the caller's error handling.
+
+## Related pages [#related]
+
+<CardGroup cols={2}>
+  <Card title="Retry after a failure" href="/how-to/handle-failures" icon="book-open">
+    Find the procedure for re-running after an exception or rejection.
+  </Card>
+  <Card title="Error classes" href="/reference/errors" icon="code">
+    Look up the thrown error classes and how to identify them.
+  </Card>
+</CardGroup>

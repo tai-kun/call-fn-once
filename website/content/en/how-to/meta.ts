@@ -1,7 +1,6 @@
 import { defineMeta } from "blume";
 
 export default defineMeta({
-  title: "Guides",
+  title: "How-to Guides",
   icon: "book-open",
-  pages: ["cache-keys", "error-handling", "abort-patterns"],
 });

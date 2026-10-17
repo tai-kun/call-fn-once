@@ -1,0 +1,107 @@
+---
+title: 実行中の処理を中断する
+description: AbortSignal を渡して、実行中の fetch などを中断する方法を説明します。
+---
+
+## コールバック関数のシグナルを使う [#internal-signal]
+
+`callAbortableFnOnce` のコールバック関数は内部処理を中断するための `AbortSignal` を受け取ります。`fetch` など中断対応 API には呼び出し元のシグナルではなくこのシグナルを渡してください。
+
+```ts
+import { callAbortableFnOnce } from "call-fn-once";
+
+const cacheMap: callAbortableFnOnce.CacheMap = new Map();
+const controller = new AbortController();
+
+const data = callAbortableFnOnce(
+  cacheMap,
+  "user",
+  async (signal) => {
+    const response = await fetch("https://example.com/user", { signal });
+
+    return response.json();
+  },
+  controller.signal,
+);
+
+controller.abort();
+await data.catch((error: unknown) => error); // AbortError
+```
+
+:::warning
+呼び出し元のシグナルをそのまま `fetch` に渡すと、ほかの呼び出し元が待機している場合でも、1 人が中断した時点で処理全体が止まってしまいます。コールバック関数の引数として受け取ったシグナルを使ってください。
+:::
+
+中断済みのシグナルを渡して呼び出した場合は、コールバック関数を実行せずに中断理由を投げます。
+
+## 複数の呼び出し元で共有する [#waiters]
+
+待機者について、次のルールが適用されます。
+
+- 複数の呼び出し元が待機している間は、1 人が中断してもほかの呼び出し元のために処理を続けます。
+- すべての呼び出し元が中断したときに限り、内部処理を中断し、キャッシュを破棄します。
+- 解決待ちの処理に後から参加した呼び出しも、待機者として数えます。
+- 中断理由は呼び出し元ごとに伝わります。ほかの呼び出し元の結果には影響しません。
+
+```ts
+async function fetchData(signal: AbortSignal) {
+  const response = await fetch("https://example.com/data", { signal });
+
+  return response.json();
+}
+
+const cacheMap: callAbortableFnOnce.CacheMap = new Map();
+
+const controller1 = new AbortController();
+const controller2 = new AbortController();
+
+const first = callAbortableFnOnce(cacheMap, "data", fetchData, controller1.signal);
+const second = callAbortableFnOnce(cacheMap, "data", fetchData, controller2.signal);
+
+controller1.abort();
+
+await first.catch((error: unknown) => error); // 中断理由を受け取ります
+console.log(await second); // controller2 のために処理が続きます
+```
+
+## シグナルなしの呼び出しが混ざる場合 [#without-signal]
+
+シグナルを指定せずに呼び出した場合は、中断しないダミーのシグナルが登録され、待機者として数えられます。
+
+```ts
+// バックグラウンドの事前読み込み (中断しない)
+const prefetch = callAbortableFnOnce(cacheMap, "data", fetchData);
+
+// 画面表示のための呼び出し (中断できる)
+const display = callAbortableFnOnce(cacheMap, "data", fetchData, controller.signal);
+
+controller.abort(); // 全員が中断したわけではないため、処理は継続します
+console.log(await prefetch); // 結果が得られます
+```
+
+## 確定後の値と中断済みシグナル [#settled]
+
+解決後の呼び出しでは、キャッシュ済みの値が `Promise` ではなく直接返ります。ただし、中断済みのシグナルを渡した場合は、キャッシュ済みの値が存在しても中断理由を投げます。
+
+```ts
+const controller = new AbortController();
+
+console.log(callAbortableFnOnce(cacheMap, "data", fetchData)); // キャッシュ済みの値
+
+controller.abort();
+
+await callAbortableFnOnce(cacheMap, "data", fetchData, controller.signal).catch(
+  (error: unknown) => error, // 中断理由
+);
+```
+
+## 関連ページ [#related]
+
+<CardGroup cols={2}>
+  <Card title="callAbortableFnOnce" href="/reference/call-abortable-fn-once" icon="code">
+    引数と戻り値の仕様を確認できます。
+  </Card>
+  <Card title="中断と待機者のモデル" href="/explanation/abort-semantics" icon="lightbulb">
+    待機者の数え方と世代管理の仕組みを理解できます。
+  </Card>
+</CardGroup>

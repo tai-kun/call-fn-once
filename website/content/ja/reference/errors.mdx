@@ -1,0 +1,76 @@
+---
+title: エラークラス
+description: call-fn-once が投げるエラークラスと、その判定方法を説明します。
+---
+
+## エラークラス一覧 [#error-classes]
+
+| エラークラス | 発生条件 | 対処 |
+| --- | --- | --- |
+| `MismatchedCacheMapError` | 別の関数で使われた `CacheMap` を渡した | 関数ごとに `Map` を分ける |
+| `ReentrantCallError` | 同じキーで同期的に再入した | キーを分ける |
+| `InconsistentCacheError` | 実行中の記録と内部状態が一致しない | `CacheMap` を直接編集しない |
+
+すべて `CallFnOnceError` を継承しています。
+
+## 判定方法 [#instanceof]
+
+`instanceof` でエラークラスを判定できます。メッセージの文言は翻訳や変更の対象になるため、一致判定には使わないでください。
+
+```ts errors.ts
+import {
+  callFnOnce,
+  InconsistentCacheError,
+  MismatchedCacheMapError,
+  ReentrantCallError,
+} from "call-fn-once";
+
+const cacheMap: callFnOnce.CacheMap = new Map();
+
+try {
+  callFnOnce(cacheMap, "key", () => "ok");
+} catch (error: unknown) {
+  if (error instanceof MismatchedCacheMapError) {
+    // 別の関数で使われている CacheMap です。関数ごとに Map を分けてください。
+  }
+
+  if (error instanceof InconsistentCacheError) {
+    // キャッシュが不整合な状態です。直接操作を見直してください。
+  }
+
+  if (error instanceof ReentrantCallError) {
+    // 同一キーでの同期的な再呼び出しです。キーを分けてください。
+  }
+}
+```
+
+## MismatchedCacheMapError [#mismatched-cache-map-error]
+
+同じ `Map` を別の関数に渡したときに同期的に投げられます。最初に使った関数が `Map` の所有権を登録しているため、キーが重複していなくても検出されます。対処は [CacheMap のスコープを設計する](/how-to/manage-cache-maps)を参照してください。
+
+## ReentrantCallError [#reentrant-call-error]
+
+同じキーのコールバック関数がその実行中に同じキーで再び呼び出されたときに同期的に投げられます。外側の結果はまだキャッシュされていないため、実行を続けると無限再帰になります。再帰的な計算を共有したい場合は、階層ごとに異なるキーを割り当ててください。
+
+## InconsistentCacheError [#inconsistent-cache-error]
+
+`callAbortableFnOnce` が実行中の記録 (`busy: true`) を見つけたものの、待機情報が存在しないときに同期的に投げられます。関数を再実行せずに投げるため、不整合は解消されません。この状態は `CacheMap` を直接編集した場合に起こり得ます。
+
+## エラーメッセージの言語 [#messages]
+
+`setErrorMessage` を使うと、クラスごとに言語別のメッセージを登録できます。
+
+```ts translate.ts
+import { MismatchedCacheMapError, setErrorMessage } from "call-fn-once";
+import { setGlobalConfig } from "valibot";
+
+setGlobalConfig({ lang: "ja" });
+
+setErrorMessage(
+  MismatchedCacheMapError,
+  "このキャッシュマップは別の関数で使用されています。",
+  "ja",
+);
+```
+
+メッセージの言語は valibot のグローバル設定から取得され、既定値は `"en"` です。日本語のメッセージはあらかじめ登録されています。`setGlobalConfig` を利用する場合は、プロジェクトの直接の依存として valibot を追加してください。

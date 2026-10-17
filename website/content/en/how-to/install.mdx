@@ -1,0 +1,43 @@
+---
+title: Install
+description: Explains how to add the call-fn-once package and the environments required to run it.
+---
+
+## Requirements [#requirements]
+
+- Node.js 24 or later is recommended.
+- ESM (`import` / `export`) only. It cannot be loaded with CommonJS `require`.
+- TypeScript type definitions are bundled. No additional setup is needed.
+
+## Add the package [#install]
+
+```package-install
+npm i call-fn-once
+```
+
+:::note
+Dependencies are added along with it. They are all lightweight and do not depend on a specific framework.
+:::
+
+## Import the functions [#import]
+
+```ts
+import {
+  callAbortableFnOnce,
+  callAsyncableFnOnce,
+  callFnOnce,
+} from "call-fn-once";
+```
+
+You can import only the functions you use. If you are unsure which to use, see [Choose a function that fits your use case](/how-to/choose-a-function).
+
+## Related pages [#related]
+
+<CardGroup cols={2}>
+  <Card title="Choose a function that fits your use case" href="/how-to/choose-a-function" icon="route">
+    Decide which function to use from your sync, async, and abort requirements.
+  </Card>
+  <Card title="Tutorial" href="/tutorial" icon="rocket">
+    Experience the whole path from installation to running the three functions.
+  </Card>
+</CardGroup>

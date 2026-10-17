@@ -1,0 +1,47 @@
+---
+title: Keys and cache lifetime
+description: Explains key identity, CacheMap ownership, and how caches are released.
+---
+
+## Key identity [#identity]
+
+A `CacheMap` is really a `Map` or a `WeakMap`. Both determine key identity using SameValueZero, so strings and numbers are compared by value while objects are compared by reference. Even if the contents are the same, creating a new object on each call makes it a different key.
+
+"Sharing the same result" means passing the same key to the same `CacheMap`. Designing keys is designing the cache itself. For how to design them, see [Design keys](/how-to/design-keys).
+
+## CacheMap ownership [#ownership]
+
+The three functions use the same `CacheMap` type, but their internal record formats differ.
+
+- `callFnOnce` stores the result value itself.
+- `callAsyncableFnOnce` stores the value or an in-flight `Promise`.
+- `callAbortableFnOnce` stores a wrapper with a `busy` flag.
+
+Because they look the same at the type level, passing the same `Map` to a different function does not cause a compile error. However, the record formats differ, so using it as-is yields values that cannot be interpreted.
+
+To detect this at runtime, the first function used registers ownership of the `CacheMap` in an internal `WeakMap`. If another function uses the same `Map`, it synchronously throws `MismatchedCacheMapError` regardless of the key. Splitting keys does not prevent this because ownership is recorded per `Map`, not per key.
+
+## Cache lifetime [#lifetime]
+
+A cache remains as long as the `CacheMap` holds a reference.
+
+- To discard a single entry, use `delete`.
+- Discarding the `Map` discards all caches within it together. A module-scoped `Map` remains for as long as the application runs, while a `Map` created inside a function becomes eligible for collection once the function returns and the reference is gone.
+- With a `WeakMap`, entries are collected once the key object becomes unreachable.
+
+The waiter state and ownership records for `callAbortableFnOnce` are also managed in internal `WeakMap`s. Discarding the `CacheMap` releases these records as well.
+
+## In-flight and settled [#busy]
+
+`callAbortableFnOnce` records an in-flight entry as `busy: true` with a shared `Promise`, and replaces it with `busy: false` and the value once settled. This flag is internal state used for abort generation management. If you edit the `CacheMap` directly and corrupt this record, a subsequent call may throw `InconsistentCacheError`.
+
+## Related pages [#related]
+
+<CardGroup cols={2}>
+  <Card title="Design the scope of a CacheMap" href="/how-to/manage-cache-maps" icon="book-open">
+    Find criteria for splitting Maps and how to discard caches.
+  </Card>
+  <Card title="Design background" href="/explanation/design" icon="lightbulb">
+    Explains why it was split into three functions.
+  </Card>
+</CardGroup>

@@ -1,0 +1,32 @@
+---
+title: How-to Guides
+description: A list of procedures organized by goal so you can pick a page from what you want to achieve.
+sidebar:
+  label: Overview
+---
+
+This section collects procedures for achieving specific goals. If you are new, reading the [Tutorial](/tutorial) first will help you grasp the big picture.
+
+<CardGroup cols={2}>
+  <Card title="Install" href="/how-to/install" icon="download">
+    Add the package and check the supported environments.
+  </Card>
+  <Card title="Choose a function that fits your use case" href="/how-to/choose-a-function" icon="route">
+    Decide which function to use from your sync, async, and abort requirements.
+  </Card>
+  <Card title="Design keys" href="/how-to/design-keys" icon="key">
+    Define keys around the unit over which you want to share the cache.
+  </Card>
+  <Card title="Design the scope of a CacheMap" href="/how-to/manage-cache-maps" icon="layers">
+    Find criteria for splitting Maps and how to discard caches.
+  </Card>
+  <Card title="Retry after a failure" href="/how-to/handle-failures" icon="refresh-cw">
+    Re-run the work with the same key after an exception or rejection.
+  </Card>
+  <Card title="Abort in-flight work" href="/how-to/abort-in-flight-work" icon="octagon-x">
+    Pass an AbortSignal to abort an in-flight fetch and the like.
+  </Card>
+  <Card title="Improve safety with type arguments" href="/how-to/type-safely" icon="braces">
+    Fix the key and value types to catch mistakes at compile time.
+  </Card>
+</CardGroup>

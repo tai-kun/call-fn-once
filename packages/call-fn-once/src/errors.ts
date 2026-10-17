@@ -4,7 +4,7 @@ export type { ErrorOptions };
 export { setErrorMessage };
 
 /**
- * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-abortable-fn-once#types)
+ * [API Reference](https://tai-kun.github.io/call-fn-once/reference/errors#error-classes)
  */
 export class CallFnOnceError extends I18nErrorBase<undefined> {
   static {
@@ -17,7 +17,7 @@ export class CallFnOnceError extends I18nErrorBase<undefined> {
 }
 
 /**
- * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-abortable-fn-once#types)
+ * [API Reference](https://tai-kun.github.io/call-fn-once/reference/errors#inconsistent-cache-error)
  */
 export class InconsistentCacheError extends CallFnOnceError {
   static {
@@ -36,7 +36,7 @@ export class InconsistentCacheError extends CallFnOnceError {
 );
 
 /**
- * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-abortable-fn-once#types)
+ * [API Reference](https://tai-kun.github.io/call-fn-once/reference/errors#mismatched-cache-map-error)
  */
 export class MismatchedCacheMapError extends CallFnOnceError {
   static {
@@ -58,7 +58,7 @@ export class MismatchedCacheMapError extends CallFnOnceError {
 );
 
 /**
- * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-abortable-fn-once#types)
+ * [API Reference](https://tai-kun.github.io/call-fn-once/reference/errors#reentrant-call-error)
  */
 export class ReentrantCallError extends CallFnOnceError {
   static {
