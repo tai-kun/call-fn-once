@@ -33,16 +33,16 @@
     "valibot": "^1.5.0"
   },
   "devDependencies": {
-    "@logtape/logtape": "^2.0.0",
+    "@logtape/logtape": "^2.4.1",
     "@tsconfig/node24": "24.0.5",
     "@tsconfig/strictest": "2.0.8",
-    "@types/node": "24.19.1",
+    "@types/node": "24.19.2",
     "@types/type-name": "1.0.32",
     "@vitest/browser": "4.1.11",
     "@vitest/browser-playwright": "4.1.11",
     "@vitest/coverage-istanbul": "4.1.11",
     "@vitest/coverage-v8": "4.1.11",
-    "playwright": "1.63.0",
+    "playwright": "1.64.0",
     "vitest": "4.1.11"
   },
   "readme": "README.md"
