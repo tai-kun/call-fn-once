@@ -8,7 +8,11 @@ namespace callFnOnce {
   /**
    * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-fn-once#types)
    */
-  export type CacheMap = Map<unknown, any>;
+  export interface CacheMap<K = unknown, V = any> {
+    has(key: K): boolean;
+    get(key: K): V;
+    set(key: K, value: V): void;
+  }
 
   /**
    * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-fn-once#types)

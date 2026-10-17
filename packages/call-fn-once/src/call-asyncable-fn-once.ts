@@ -10,7 +10,12 @@ namespace callAsyncableFnOnce {
   /**
    * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-asyncable-fn-once#types)
    */
-  export type CacheMap = Map<unknown, MaybePromise<any>>;
+  export interface CacheMap<K = unknown, V = any> {
+    has(key: K): boolean;
+    get(key: K): MaybePromise<V>;
+    set(key: K, value: MaybePromise<V>): void;
+    delete(key: K): void;
+  }
 
   /**
    * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-asyncable-fn-once#types)

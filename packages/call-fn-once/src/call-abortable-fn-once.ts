@@ -12,7 +12,7 @@ namespace callAbortableFnOnce {
   /**
    * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-abortable-fn-once#types)
    */
-  export type Cache =
+  export type Cache<V = any> =
     | {
         /**
          * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-abortable-fn-once#types)
@@ -22,7 +22,7 @@ namespace callAbortableFnOnce {
         /**
          * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-abortable-fn-once#types)
          */
-        readonly value: Promise<any>;
+        readonly value: Promise<V>;
       }
     | {
         /**
@@ -33,13 +33,18 @@ namespace callAbortableFnOnce {
         /**
          * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-abortable-fn-once#types)
          */
-        readonly value: any;
+        readonly value: V;
       };
 
   /**
    * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-abortable-fn-once#types)
    */
-  export type CacheMap = Map<unknown, Cache>;
+  export interface CacheMap<K = unknown, V = any> {
+    has(key: K): boolean;
+    get(key: K): Cache<V>;
+    set(key: K, value: Cache<V>): void;
+    delete(key: K): void;
+  }
 
   /**
    * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-abortable-fn-once#types)
