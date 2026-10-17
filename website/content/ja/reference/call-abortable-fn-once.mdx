@@ -106,7 +106,7 @@ secondController.abort();
       type: "callAbortableFnOnce.CacheMap",
       required: true,
       description:
-        "実行結果を保持する Map オブジェクトです。実行中と完了済みの状態を区別して保持します。",
+        "実行結果を保持するオブジェクトです。has・get・set・delete だけを要求するため、Map と WeakMap のどちらも使えます。",
     },
     key: {
       type: "unknown",
@@ -125,6 +125,8 @@ secondController.abort();
     },
   }}
 />
+
+`callAbortableFnOnce.CacheMap` が求めるのは `has()`・`get()`・`set()`・`delete()` です。`Map` と `WeakMap` をそのまま渡せます。`WeakMap` のキーにはオブジェクトだけを指定できます。
 
 戻り値の型は `callAbortableFnOnce.Return<T>` です。`T` が Thenable の場合は解決値を `MaybePromise` でラップした型になり、それ以外の場合は `T` のままです。
 

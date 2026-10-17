@@ -73,7 +73,7 @@ console.log(callCount);
       type: "callFnOnce.CacheMap",
       required: true,
       description:
-        "実行結果を保持する Map オブジェクトです。任意の値をキー、計算結果を値として保持します。",
+        "実行結果を保持するオブジェクトです。has・get・set だけを要求するため、Map と WeakMap のどちらも使えます。",
     },
     key: {
       type: "unknown",
@@ -87,6 +87,8 @@ console.log(callCount);
     },
   }}
 />
+
+`callFnOnce.CacheMap` が求めるのは `has()`・`get()`・`set()` だけです。`Map` と `WeakMap` をそのまま渡せます。`delete()` は要求しません。`WeakMap` のキーにはオブジェクトだけを指定できます。
 
 戻り値の型は `callFnOnce.Return<T>` で、`T` と同じになります。
 

@@ -92,7 +92,8 @@ An `undefined` settled value is also cached as the settled value.
     cacheMap: {
       type: "callAsyncableFnOnce.CacheMap",
       required: true,
-      description: "A Map object that holds results. It holds sync values or async values before and after settlement.",
+      description:
+        "An object that holds results. Only has, get, set, and delete are required, so Map and WeakMap both work.",
     },
     key: {
       type: "unknown",
@@ -106,6 +107,8 @@ An `undefined` settled value is also cached as the settled value.
     },
   }}
 />
+
+`callAsyncableFnOnce.CacheMap` requires `has()`, `get()`, `set()`, and `delete()`. Both `Map` and `WeakMap` can be passed directly. `WeakMap` keys must be objects.
 
 The return type is `callAsyncableFnOnce.Return<T>`. When `T` is a thenable it wraps the resolved value in `MaybePromise`; otherwise it stays as `T`.
 

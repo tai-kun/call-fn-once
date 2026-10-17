@@ -71,7 +71,8 @@ Passing an async function caches the `Promise` object itself. It does not share 
     cacheMap: {
       type: "callFnOnce.CacheMap",
       required: true,
-      description: "A Map object that holds results. It stores arbitrary values as keys and computed results as values.",
+      description:
+        "An object that holds results. Only has, get, and set are required, so Map and WeakMap both work.",
     },
     key: {
       type: "unknown",
@@ -85,6 +86,8 @@ Passing an async function caches the `Promise` object itself. It does not share 
     },
   }}
 />
+
+`callFnOnce.CacheMap` only requires `has()`, `get()`, and `set()`. Both `Map` and `WeakMap` can be passed directly; `delete()` is not required, and `WeakMap` keys must be objects.
 
 The return type is `callFnOnce.Return<T>`, which is the same as `T`.
 
