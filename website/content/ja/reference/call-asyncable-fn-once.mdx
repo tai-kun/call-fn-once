@@ -91,38 +91,73 @@ console.log(cached);
 <TypeTable
   type={{
     cacheMap: {
-      type: "callAsyncableFnOnce.CacheMap",
+      type: "callAsyncableFnOnce.CacheMap<K, V>",
       required: true,
       description:
         "実行結果を保持するオブジェクトです。has・get・set・delete だけを要求するため、Map と WeakMap のどちらも使えます。",
     },
     key: {
-      type: "unknown",
+      type: "K",
       required: true,
-      description: "キャッシュを識別する一意のキーです。",
+      description: "キャッシュを識別する一意のキーです。型は CacheMap の型引数 K で決まります。",
     },
     fn: {
-      type: "() => T",
+      type: "() => V",
       required: true,
-      description: "実行するコールバック関数です。同期値と非同期値のどちらも返せます。",
+      description:
+        "実行するコールバック関数です。同期値と非同期値のどちらも返せます。戻り値は CacheMap の型引数 V に合わせます。",
     },
   }}
 />
 
 `callAsyncableFnOnce.CacheMap` が求めるのは `has()`・`get()`・`set()`・`delete()` です。`Map` と `WeakMap` をそのまま渡せます。`WeakMap` のキーにはオブジェクトだけを指定できます。
 
-戻り値の型は `callAsyncableFnOnce.Return<T>` です。`T` が Thenable の場合は解決値を `MaybePromise` でラップした型になり、それ以外の場合は `T` のままです。
+戻り値の型は `callAsyncableFnOnce.Return<V>` です。`V` が Thenable の場合は解決値を `MaybePromise` でラップした型になり、それ以外の場合は `V` のままです。
 
 ```ts types.ts
 import { callAsyncableFnOnce } from "call-fn-once";
 
-const cacheMap: callAsyncableFnOnce.CacheMap = new Map();
+const syncCacheMap: callAsyncableFnOnce.CacheMap<string, number> = new Map();
+const asyncCacheMap: callAsyncableFnOnce.CacheMap<string, Promise<number>> = new Map();
 
-const syncValue: number = callAsyncableFnOnce(cacheMap, "sync", () => 1);
-const asyncValue: number | Promise<number> = callAsyncableFnOnce(cacheMap, "async", () =>
+const syncValue: number = callAsyncableFnOnce(syncCacheMap, "sync", () => 1);
+const asyncValue: number | Promise<number> = callAsyncableFnOnce(asyncCacheMap, "async", () =>
   Promise.resolve(1),
 );
 ```
+
+### 型推論 [#type-inference]
+
+戻り値の型は、コールバック関数が返す値ではなく、`CacheMap` の型引数 `V` から決まります。`key` の型も `CacheMap` の型引数 `K` で制約されます。
+
+仮にコールバック関数の戻り値から型を推論した場合、同じキーに対して呼び出しごとに異なる戻り値の型で呼び出せてしまいます。次のコードでは、2 回目の呼び出しは `string` 型と推論されますが、実際に返るのは 1 回目にキャッシュされた `number` の `42` です。
+
+```ts unsafe.ts
+import { callAsyncableFnOnce } from "call-fn-once";
+
+const cacheMap: callAsyncableFnOnce.CacheMap = new Map();
+
+const value1: number = callAsyncableFnOnce(cacheMap, "key", () => 42);
+console.log(value1); // 42
+
+const value2: string = callAsyncableFnOnce(cacheMap, "key", () => "42");
+console.log(value2); // 42
+```
+
+この制約を有効にするには、`CacheMap` の型引数でキーと値を指定します。たとえば `CacheMap<string, number>` を指定すると、同じキーに対して `string` を返すコールバック関数はコンパイルエラーになります。
+
+```ts typed.ts
+import { callAsyncableFnOnce } from "call-fn-once";
+
+const cacheMap: callAsyncableFnOnce.CacheMap<string, number> = new Map();
+
+const value1: number = callAsyncableFnOnce(cacheMap, "key", () => 42);
+
+// 型エラー: 同じキーに対して string は返せません。
+const value2: string = callAsyncableFnOnce(cacheMap, "key", () => "42");
+```
+
+`CacheMap` とだけ書いて型引数を省略すると、`V` は `any` になり、制約がかかりません。型の制約が必要な場合は型引数を指定してください。
 
 ## 関連ページ [#related]
 

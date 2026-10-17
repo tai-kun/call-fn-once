@@ -103,20 +103,21 @@ secondController.abort();
 <TypeTable
   type={{
     cacheMap: {
-      type: "callAbortableFnOnce.CacheMap",
+      type: "callAbortableFnOnce.CacheMap<K, V>",
       required: true,
       description:
         "実行結果を保持するオブジェクトです。has・get・set・delete だけを要求するため、Map と WeakMap のどちらも使えます。",
     },
     key: {
-      type: "unknown",
+      type: "K",
       required: true,
-      description: "キャッシュを識別する一意のキーです。",
+      description: "キャッシュを識別する一意のキーです。型は CacheMap の型引数 K で決まります。",
     },
     fn: {
-      type: "(signal: AbortSignal) => T",
+      type: "(signal: AbortSignal) => V",
       required: true,
-      description: "実行するコールバック関数です。内部処理の中断用シグナルを引数に受け取ります。",
+      description:
+        "実行するコールバック関数です。内部処理の中断用シグナルを引数に受け取ります。戻り値は CacheMap の型引数 V に合わせます。",
     },
     signal: {
       type: "AbortSignal",
@@ -128,7 +129,40 @@ secondController.abort();
 
 `callAbortableFnOnce.CacheMap` が求めるのは `has()`・`get()`・`set()`・`delete()` です。`Map` と `WeakMap` をそのまま渡せます。`WeakMap` のキーにはオブジェクトだけを指定できます。
 
-戻り値の型は `callAbortableFnOnce.Return<T>` です。`T` が Thenable の場合は解決値を `MaybePromise` でラップした型になり、それ以外の場合は `T` のままです。
+戻り値の型は `callAbortableFnOnce.Return<V>` です。`V` が Thenable の場合は解決値を `MaybePromise` でラップした型になり、それ以外の場合は `V` のままです。
+
+### 型推論 [#type-inference]
+
+戻り値の型は、コールバック関数が返す値ではなく、`CacheMap` の型引数 `V` から決まります。`key` の型も `CacheMap` の型引数 `K` で制約されます。
+
+仮にコールバック関数の戻り値から型を推論した場合、同じキーに対して呼び出しごとに異なる戻り値の型で呼び出せてしまいます。次のコードでは、2 回目の呼び出しは `string` 型と推論されますが、実際に返るのは 1 回目にキャッシュされた `number` の `42` です。
+
+```ts unsafe.ts
+import { callAbortableFnOnce } from "call-fn-once";
+
+const cacheMap: callAbortableFnOnce.CacheMap = new Map();
+
+const value1: number = callAbortableFnOnce(cacheMap, "key", () => 42);
+console.log(value1); // 42
+
+const value2: string = callAbortableFnOnce(cacheMap, "key", () => "42");
+console.log(value2); // 42
+```
+
+この制約を有効にするには、`CacheMap` の型引数でキーと値を指定します。たとえば `CacheMap<string, number>` を指定すると、同じキーに対して `string` を返すコールバック関数はコンパイルエラーになります。
+
+```ts typed.ts
+import { callAbortableFnOnce } from "call-fn-once";
+
+const cacheMap: callAbortableFnOnce.CacheMap<string, number> = new Map();
+
+const value1: number = callAbortableFnOnce(cacheMap, "key", () => 42);
+
+// 型エラー: 同じキーに対して string は返せません。
+const value2: string = callAbortableFnOnce(cacheMap, "key", () => "42");
+```
+
+`CacheMap` とだけ書いて型引数を省略すると、`V` は `any` になり、制約がかかりません。型の制約が必要な場合は型引数を指定してください。
 
 キャッシュの値は `callAbortableFnOnce.Cache` として保持します。実行中は `busy: true` と `Promise`、完了後は `busy: false` と確定値を格納します。
 

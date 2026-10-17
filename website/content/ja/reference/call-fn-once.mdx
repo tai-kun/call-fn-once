@@ -70,36 +70,70 @@ console.log(callCount);
 <TypeTable
   type={{
     cacheMap: {
-      type: "callFnOnce.CacheMap",
+      type: "callFnOnce.CacheMap<K, V>",
       required: true,
       description:
         "実行結果を保持するオブジェクトです。has・get・set だけを要求するため、Map と WeakMap のどちらも使えます。",
     },
     key: {
-      type: "unknown",
+      type: "K",
       required: true,
-      description: "キャッシュを識別する一意のキーです。",
+      description: "キャッシュを識別する一意のキーです。型は CacheMap の型引数 K で決まります。",
     },
     fn: {
-      type: "() => T",
+      type: "() => V",
       required: true,
-      description: "実行するコールバック関数です。",
+      description: "実行するコールバック関数です。戻り値は CacheMap の型引数 V に合わせます。",
     },
   }}
 />
 
 `callFnOnce.CacheMap` が求めるのは `has()`・`get()`・`set()` だけです。`Map` と `WeakMap` をそのまま渡せます。`delete()` は要求しません。`WeakMap` のキーにはオブジェクトだけを指定できます。
 
-戻り値の型は `callFnOnce.Return<T>` で、`T` と同じになります。
+戻り値の型は `callFnOnce.Return<V>` で、`V` と同じになります。
 
 ```ts types.ts
 import { callFnOnce } from "call-fn-once";
 
+const numberCacheMap: callFnOnce.CacheMap<string, number> = new Map();
+const undefinedCacheMap: callFnOnce.CacheMap<string, undefined> = new Map();
+
+const num: number = callFnOnce(numberCacheMap, "num", () => 1);
+const nothing: undefined = callFnOnce(undefinedCacheMap, "nothing", () => undefined);
+```
+
+### 型推論 [#type-inference]
+
+戻り値の型は、コールバック関数が返す値ではなく、`CacheMap` の型引数 `V` から決まります。`key` の型も `CacheMap` の型引数 `K` で制約されます。
+
+仮にコールバック関数の戻り値から型を推論した場合、同じキーに対して呼び出しごとに異なる戻り値の型で呼び出せてしまいます。次のコードでは、2 回目の呼び出しは `string` 型と推論されますが、実際に返るのは 1 回目にキャッシュされた `number` の `42` です。
+
+```ts unsafe.ts
+import { callFnOnce } from "call-fn-once";
+
 const cacheMap: callFnOnce.CacheMap = new Map();
 
-const num: number = callFnOnce(cacheMap, "num", () => 1);
-const nothing: undefined = callFnOnce(cacheMap, "nothing", () => undefined);
+const value1: number = callFnOnce(cacheMap, "key", () => 42);
+console.log(value1); // 42
+
+const value2: string = callFnOnce(cacheMap, "key", () => "42");
+console.log(value2); // 42
 ```
+
+この制約を有効にするには、`CacheMap` の型引数でキーと値を指定します。たとえば `CacheMap<string, number>` を指定すると、同じキーに対して `string` を返すコールバック関数はコンパイルエラーになります。
+
+```ts typed.ts
+import { callFnOnce } from "call-fn-once";
+
+const cacheMap: callFnOnce.CacheMap<string, number> = new Map();
+
+const value1: number = callFnOnce(cacheMap, "key", () => 42);
+
+// 型エラー: 同じキーに対して string は返せません。
+const value2: string = callFnOnce(cacheMap, "key", () => "42");
+```
+
+`CacheMap` とだけ書いて型引数を省略すると、`V` は `any` になり、制約がかかりません。型の制約が必要な場合は型引数を指定してください。
 
 ## 関連ページ [#related]
 

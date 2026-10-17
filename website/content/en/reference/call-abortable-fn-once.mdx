@@ -102,20 +102,22 @@ Abort reasons are read with `getAbortReason` from `abort-signal-utils` and check
 <TypeTable
   type={{
     cacheMap: {
-      type: "callAbortableFnOnce.CacheMap",
+      type: "callAbortableFnOnce.CacheMap<K, V>",
       required: true,
       description:
         "An object that holds results. Only has, get, set, and delete are required, so Map and WeakMap both work.",
     },
     key: {
-      type: "unknown",
+      type: "K",
       required: true,
-      description: "A unique key identifying the cache entry.",
+      description:
+        "A unique key identifying the cache entry. Its type comes from the K type argument of CacheMap.",
     },
     fn: {
-      type: "(signal: AbortSignal) => T",
+      type: "(signal: AbortSignal) => V",
       required: true,
-      description: "The callback function to run. It receives a signal for aborting the internal work.",
+      description:
+        "The callback function to run. It receives a signal for aborting the internal work. Its return value must match the V type argument of CacheMap.",
     },
     signal: {
       type: "AbortSignal",
@@ -127,7 +129,40 @@ Abort reasons are read with `getAbortReason` from `abort-signal-utils` and check
 
 `callAbortableFnOnce.CacheMap` requires `has()`, `get()`, `set()`, and `delete()`. Both `Map` and `WeakMap` can be passed directly. `WeakMap` keys must be objects.
 
-The return type is `callAbortableFnOnce.Return<T>`. When `T` is a thenable it wraps the resolved value in `MaybePromise`; otherwise it stays as `T`.
+The return type is `callAbortableFnOnce.Return<V>`. When `V` is a thenable it wraps the resolved value in `MaybePromise`; otherwise it stays as `V`.
+
+### Type inference [#type-inference]
+
+The return type comes from the `V` type argument of `CacheMap`, not from the callback's return value. The `key` type also comes from the `K` type argument of `CacheMap`.
+
+Inferring the return type from the callback would let callers use a different type for the same key on each call, so the following code would type-check. The second call is typed as `string`, but at runtime it returns the `number` `42` cached by the first call.
+
+```ts unsafe.ts
+import { callAbortableFnOnce } from "call-fn-once";
+
+const cacheMap: callAbortableFnOnce.CacheMap = new Map();
+
+const value1: number = callAbortableFnOnce(cacheMap, "key", () => 42);
+console.log(value1); // 42
+
+const value2: string = callAbortableFnOnce(cacheMap, "key", () => "42");
+console.log(value2); // 42
+```
+
+To get the constraint, specify the key and value types with the `CacheMap` type arguments. With `CacheMap<string, number>`, returning a `string` for the same key is a compile error.
+
+```ts typed.ts
+import { callAbortableFnOnce } from "call-fn-once";
+
+const cacheMap: callAbortableFnOnce.CacheMap<string, number> = new Map();
+
+const value1: number = callAbortableFnOnce(cacheMap, "key", () => 42);
+
+// Type error: the same key can only be associated with a number.
+const value2: string = callAbortableFnOnce(cacheMap, "key", () => "42");
+```
+
+If you write `CacheMap` without its type arguments, `V` is `any`, so specify them when you need the constraint.
 
 Cached values are held as `callAbortableFnOnce.Cache`. Running entries store `busy: true` with a `Promise`, and settled entries store `busy: false` with the settled value.
 

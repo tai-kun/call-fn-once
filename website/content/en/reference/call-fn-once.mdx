@@ -69,36 +69,72 @@ Passing an async function caches the `Promise` object itself. It does not share 
 <TypeTable
   type={{
     cacheMap: {
-      type: "callFnOnce.CacheMap",
+      type: "callFnOnce.CacheMap<K, V>",
       required: true,
       description:
         "An object that holds results. Only has, get, and set are required, so Map and WeakMap both work.",
     },
     key: {
-      type: "unknown",
+      type: "K",
       required: true,
-      description: "A unique key identifying the cache entry.",
+      description:
+        "A unique key identifying the cache entry. Its type comes from the K type argument of CacheMap.",
     },
     fn: {
-      type: "() => T",
+      type: "() => V",
       required: true,
-      description: "The callback function to run.",
+      description:
+        "The callback function to run. Its return value must match the V type argument of CacheMap.",
     },
   }}
 />
 
 `callFnOnce.CacheMap` only requires `has()`, `get()`, and `set()`. Both `Map` and `WeakMap` can be passed directly; `delete()` is not required, and `WeakMap` keys must be objects.
 
-The return type is `callFnOnce.Return<T>`, which is the same as `T`.
+The return type is `callFnOnce.Return<V>`, which is the same as `V`.
 
 ```ts types.ts
 import { callFnOnce } from "call-fn-once";
 
+const numberCacheMap: callFnOnce.CacheMap<string, number> = new Map();
+const undefinedCacheMap: callFnOnce.CacheMap<string, undefined> = new Map();
+
+const num: number = callFnOnce(numberCacheMap, "num", () => 1);
+const nothing: undefined = callFnOnce(undefinedCacheMap, "nothing", () => undefined);
+```
+
+### Type inference [#type-inference]
+
+The return type comes from the `V` type argument of `CacheMap`, not from the callback's return value. The `key` type also comes from the `K` type argument of `CacheMap`.
+
+Inferring the return type from the callback would let callers use a different type for the same key on each call, so the following code would type-check. The second call is typed as `string`, but at runtime it returns the `number` `42` cached by the first call.
+
+```ts unsafe.ts
+import { callFnOnce } from "call-fn-once";
+
 const cacheMap: callFnOnce.CacheMap = new Map();
 
-const num: number = callFnOnce(cacheMap, "num", () => 1);
-const nothing: undefined = callFnOnce(cacheMap, "nothing", () => undefined);
+const value1: number = callFnOnce(cacheMap, "key", () => 42);
+console.log(value1); // 42
+
+const value2: string = callFnOnce(cacheMap, "key", () => "42");
+console.log(value2); // 42
 ```
+
+To get the constraint, specify the key and value types with the `CacheMap` type arguments. With `CacheMap<string, number>`, returning a `string` for the same key is a compile error.
+
+```ts typed.ts
+import { callFnOnce } from "call-fn-once";
+
+const cacheMap: callFnOnce.CacheMap<string, number> = new Map();
+
+const value1: number = callFnOnce(cacheMap, "key", () => 42);
+
+// Type error: the same key can only be associated with a number.
+const value2: string = callFnOnce(cacheMap, "key", () => "42");
+```
+
+If you write `CacheMap` without its type arguments, `V` is `any`, so specify them when you need the constraint.
 
 ## Related pages [#related]
 
