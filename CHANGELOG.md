@@ -1,5 +1,24 @@
 # Changelog
 
+## call-fn-once@0.0.9
+
+### バグ修正
+
+- キーと戻り値の型を CacheMap から推論する ([3566cac](https://github.com/tai-kun/call-fn-once/commit/3566caccebeefc4bacd2cefbc42167a6026d8410))
+- CacheMap インターフェースに最低限の API しか要求しないことで、CacheMap に WeakMap を使える ([346d2e2](https://github.com/tai-kun/call-fn-once/commit/346d2e2ae05ef7ab323ed7d65ea91f9af7e377b4))
+
+### ドキュメント
+
+- Diátaxis アプローチに基づいて刷新 ([e3973b6](https://github.com/tai-kun/call-fn-once/commit/e3973b6e88881ffc5bad459053b1e0a09a3d9ad9))
+- 戻り値の型推論が CacheMap に制約されることを文書化 ([690ca67](https://github.com/tai-kun/call-fn-once/commit/690ca67209cf238b5db9a0477025e555d5db4f6d))
+- CacheMap の最小インターフェース化と WeakMap の利用を文書化 ([ffa5f09](https://github.com/tai-kun/call-fn-once/commit/ffa5f099d564acd310d4104fdff6f15ee26e4634))
+
+### その他
+
+- パッケージを更新 ([362b319](https://github.com/tai-kun/call-fn-once/commit/362b3193eb84c5f802573e0e5534cb84d54f1077))
+
+**Full Changelog**: https://github.com/tai-kun/call-fn-once/compare/call-fn-once@0.0.8...call-fn-once@0.0.9
+
 ## call-fn-once@0.0.8
 
 ### 新機能
