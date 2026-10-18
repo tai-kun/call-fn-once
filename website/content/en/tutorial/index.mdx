@@ -47,9 +47,9 @@ const second = callFnOnce(cacheMap, "config", () => {
   return { timeout: 9999 };
 });
 
-console.log(first);
-console.log(first === second);
-console.log(callCount);
+console.log(first); // { timeout: 3000 }
+console.log(first === second); // true
+console.log(callCount); // 1
 ```
 
 `first` and `second` reference the same object, and `callCount` stays at `1`. The second callback is not run, so `{ timeout: 9999 }` is never returned.
@@ -76,9 +76,9 @@ const second = callAsyncableFnOnce(cacheMap, "user", async () => {
   return "someone-else";
 });
 
-console.log(await first);
-console.log(await second);
-console.log(callCount);
+console.log(await first); // "tai-kun"
+console.log(await second); // "tai-kun"
+console.log(callCount); // 1
 ```
 
 Both `await first` and `await second` resolve to `"tai-kun"`, and `callCount` stays at `1`. After resolution, the settled value stays in the cache, so the next call returns the value directly instead of a `Promise`.
@@ -88,7 +88,7 @@ const cached = callAsyncableFnOnce(cacheMap, "user", () => {
   throw new Error("this does not run after resolution");
 });
 
-console.log(cached);
+console.log(cached); // "tai-kun"
 ```
 
 ## 5. Abort in-flight work [#abort]

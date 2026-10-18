@@ -38,7 +38,7 @@ const second = callFnOnce(cacheMap, "config", () => {
   throw new Error("2 回目は実行されません");
 });
 
-console.log(first === second);
+console.log(first === second); // true
 ```
 
 2 回目の呼び出しではコールバック関数を実行せず、1 回目の結果をそのまま返します。手を動かして学びたい場合は、チュートリアルから始めてください。

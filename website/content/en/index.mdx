@@ -38,7 +38,7 @@ const second = callFnOnce(cacheMap, "config", () => {
   throw new Error("the second call never runs");
 });
 
-console.log(first === second);
+console.log(first === second); // true
 ```
 
 The second call does not run the callback and returns the first result as-is. If you prefer to learn by doing, start with the tutorial.

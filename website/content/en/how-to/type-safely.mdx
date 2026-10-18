@@ -25,7 +25,8 @@ const cacheMap: callFnOnce.CacheMap = new Map();
 const value = callFnOnce(cacheMap, "answer", () => 42);
 const text: string = value; // compiles, but text is 42 at runtime
 
-console.log(text);
+console.log(text); // 42
+console.log(typeof text); // "number"
 ```
 
 ## How the return type is determined [#return-type]
@@ -38,7 +39,7 @@ const cacheMap: callFnOnce.CacheMap<string, unknown> = new Map();
 const value = callFnOnce(cacheMap, "port", () => 3000);
 
 if (typeof value === "number") {
-  console.log(value + 1);
+  console.log(value + 1); // 3001
 }
 ```
 

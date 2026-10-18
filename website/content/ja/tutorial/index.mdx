@@ -47,9 +47,9 @@ const second = callFnOnce(cacheMap, "config", () => {
   return { timeout: 9999 };
 });
 
-console.log(first);
-console.log(first === second);
-console.log(callCount);
+console.log(first); // { timeout: 3000 }
+console.log(first === second); // true
+console.log(callCount); // 1
 ```
 
 `first` と `second` は同じオブジェクトを参照し、`callCount` は `1` のままです。2 回目のコールバック関数は実行されないため、`{ timeout: 9999 }` が返ることはありません。
@@ -76,9 +76,9 @@ const second = callAsyncableFnOnce(cacheMap, "user", async () => {
   return "someone-else";
 });
 
-console.log(await first);
-console.log(await second);
-console.log(callCount);
+console.log(await first); // "tai-kun"
+console.log(await second); // "tai-kun"
+console.log(callCount); // 1
 ```
 
 `await first` と `await second` はどちらも `"tai-kun"` になり、`callCount` は `1` のままです。解決後は確定した値がキャッシュに残るため、次回の呼び出しでは `Promise` ではなく値が直接返ります。
@@ -88,7 +88,7 @@ const cached = callAsyncableFnOnce(cacheMap, "user", () => {
   throw new Error("解決後は実行されません");
 });
 
-console.log(cached);
+console.log(cached); // "tai-kun"
 ```
 
 ## 5. 実行中の処理を中断する [#abort]
