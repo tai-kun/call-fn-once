@@ -12,7 +12,7 @@ namespace callAsyncableFnOnce {
    */
   export interface CacheMap<K = unknown, V = any> {
     has(key: K): boolean;
-    get(key: K): MaybePromise<V>;
+    get(key: K): MaybePromise<V> | undefined;
     set(key: K, value: MaybePromise<V>): void;
     delete(key: K): void;
   }

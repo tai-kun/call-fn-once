@@ -41,7 +41,7 @@ namespace callAbortableFnOnce {
    */
   export interface CacheMap<K = unknown, V = any> {
     has(key: K): boolean;
-    get(key: K): Cache<V>;
+    get(key: K): Cache<V> | undefined;
     set(key: K, value: Cache<V>): void;
     delete(key: K): void;
   }

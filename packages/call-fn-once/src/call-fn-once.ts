@@ -10,7 +10,7 @@ namespace callFnOnce {
    */
   export interface CacheMap<K = unknown, V = any> {
     has(key: K): boolean;
-    get(key: K): V;
+    get(key: K): V | undefined;
     set(key: K, value: V): void;
   }
 
@@ -84,7 +84,7 @@ function callFnOnce<K, V>(
 
   // `has()` で存在を確認するため、`undefined` の値も正しく扱えます。
   if (cacheMap.has(key)) {
-    return cacheMap.get(key);
+    return cacheMap.get(key)!;
   }
 
   // 同期的な再入を禁止するため、ガード内で実行します。
