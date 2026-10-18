@@ -1,5 +1,13 @@
 # Changelog
 
+## call-fn-once@0.0.10
+
+### バグ修正
+
+- CahceMap の get の返り値に undefined を含める ([24f7795](https://github.com/tai-kun/call-fn-once/commit/24f7795525459fed995eef9aa29f7369996be759))
+
+**Full Changelog**: https://github.com/tai-kun/call-fn-once/compare/call-fn-once@0.0.9...call-fn-once@0.0.10
+
 ## call-fn-once@0.0.9
 
 ### バグ修正
