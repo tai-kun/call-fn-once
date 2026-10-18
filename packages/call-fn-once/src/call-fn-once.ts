@@ -59,6 +59,11 @@ function normalizeArgs<K, V>(
 }
 
 /**
+ * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-fn-once#usage)
+ */
+function callFnOnce<K, V>(options: callFnOnce.Options<K, V>): callFnOnce.Return<V>;
+
+/**
  * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-fn-once)
  */
 function callFnOnce<K, V>(
@@ -66,11 +71,6 @@ function callFnOnce<K, V>(
   key: NoInfer<K>,
   fn: () => NoInfer<V>,
 ): callFnOnce.Return<V>;
-
-/**
- * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-fn-once#usage)
- */
-function callFnOnce<K, V>(options: callFnOnce.Options<K, V>): callFnOnce.Return<V>;
 
 function callFnOnce<K, V>(
   ...args:

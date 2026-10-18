@@ -503,6 +503,13 @@ function normalizeArgs<K, V>(
 }
 
 /**
+ * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-abortable-fn-once#usage)
+ */
+function callAbortableFnOnce<K, V>(
+  options: callAbortableFnOnce.Options<K, V>,
+): callAbortableFnOnce.Return<V>;
+
+/**
  * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-abortable-fn-once)
  */
 function callAbortableFnOnce<K, V>(
@@ -510,13 +517,6 @@ function callAbortableFnOnce<K, V>(
   key: NoInfer<K>,
   fn: (signal: AbortSignal) => NoInfer<V>,
   signal?: AbortSignal,
-): callAbortableFnOnce.Return<V>;
-
-/**
- * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-abortable-fn-once#usage)
- */
-function callAbortableFnOnce<K, V>(
-  options: callAbortableFnOnce.Options<K, V>,
 ): callAbortableFnOnce.Return<V>;
 
 function callAbortableFnOnce<K, V>(
