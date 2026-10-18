@@ -1,5 +1,17 @@
 # Changelog
 
+## call-fn-once@0.0.11
+
+### バグ修正
+
+- オーバーロードの順番を変えて入力補完がでるようにする ([ebc328e](https://github.com/tai-kun/call-fn-once/commit/ebc328ea421f7c3034112f1efcfec8aa0fbe88f2))
+
+### ドキュメント
+
+- 仕様例の console.log に出力値を記載する ([55b3ed7](https://github.com/tai-kun/call-fn-once/commit/55b3ed7954db766d9a26346489ab048441484ab5))
+
+**Full Changelog**: https://github.com/tai-kun/call-fn-once/compare/call-fn-once@0.0.10...call-fn-once@0.0.11
+
 ## call-fn-once@0.0.10
 
 ### バグ修正
