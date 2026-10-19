@@ -10,6 +10,7 @@ description: Explains the error classes thrown by call-fn-once and how to identi
 | `MismatchedCacheMapError` | A `CacheMap` used by another function was passed | Use a separate `Map` per function |
 | `ReentrantCallError` | Synchronous reentry with the same key | Split the keys |
 | `InconsistentCacheError` | The in-flight record and internal state do not match | Do not edit the `CacheMap` directly |
+| `NotPromisableSignalError` | A signal not registered for `toAbortPromise` was passed | Use the signal of the `callAbortableFnOnce` callback |
 
 All extend `CallFnOnceError`.
 
@@ -22,6 +23,7 @@ import {
   callFnOnce,
   InconsistentCacheError,
   MismatchedCacheMapError,
+  NotPromisableSignalError,
   ReentrantCallError,
 } from "call-fn-once";
 
@@ -41,6 +43,10 @@ try {
   if (error instanceof ReentrantCallError) {
     // This is a synchronous re-call with the same key. Split the keys.
   }
+
+  if (error instanceof NotPromisableSignalError) {
+    // The signal passed to toAbortPromise is not registered. Use the callback's signal.
+  }
 }
 ```
 
@@ -55,6 +61,10 @@ Thrown synchronously when the callback for a key is called again with the same k
 ## InconsistentCacheError [#inconsistent-cache-error]
 
 Thrown synchronously when `callAbortableFnOnce` finds an in-flight record (`busy: true`) but no waiter information exists. Because it is thrown without running the function again, the inconsistency is not resolved. This state can occur if the `CacheMap` is edited directly.
+
+## NotPromisableSignalError [#not-promisable-signal-error]
+
+Returned as the rejection reason of the `Promise` when a signal that `callAbortableFnOnce` has not registered is passed to `toAbortPromise`. The only signal you can pass to `toAbortPromise` is the internal signal the callback of `callAbortableFnOnce` receives. For details, see [toAbortPromise](/reference/to-abort-promise).
 
 ## Error message language [#messages]
 

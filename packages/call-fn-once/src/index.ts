@@ -14,4 +14,8 @@ export {
   ReentrantCallError,
   InconsistentCacheError,
   MismatchedCacheMapError,
+  NotPromisableSignalError,
 } from "./errors.js";
+
+export type * from "./to-abort-promise.js";
+export { default as toAbortPromise } from "./to-abort-promise.js";

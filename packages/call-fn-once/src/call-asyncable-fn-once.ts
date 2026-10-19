@@ -96,7 +96,7 @@ function callAsyncableFnOnce<K, V>(
 ): callAsyncableFnOnce.Return<V>;
 
 /**
- * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-asyncable-fn-once)
+ * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-asyncable-fn-once#usage)
  */
 function callAsyncableFnOnce<K, V>(
   cacheMap: callAsyncableFnOnce.CacheMap<K, V>,

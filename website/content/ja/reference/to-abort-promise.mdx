@@ -1,0 +1,67 @@
+---
+title: toAbortPromise
+description: コールバック関数の内部シグナルを、中断理由で拒否される Promise に変換する関数の仕様です。
+---
+
+`toAbortPromise` は、`callAbortableFnOnce` のコールバック関数が受け取る内部シグナルを、そのシグナルが中断したときに中断理由で拒否される `Promise` に変換します。
+
+:::warning[重要]
+`toAbortPromise` に渡せるのは、`callAbortableFnOnce` がコールバック関数へ渡す内部シグナルだけです。
+:::
+
+## 使い方 [#usage]
+
+`Promise.race` に内部シグナルの `Promise` を加えると、内部処理が中断された時点でレースが中断理由で拒否されます。
+
+```ts async.ts
+import { callAbortableFnOnce, toAbortPromise } from "call-fn-once";
+
+/**
+ * 中断に対応していない時間のかかる処理です。
+ */
+function loadWithoutSignal(): Promise<string> {
+  return new Promise((resolve) => {
+    setTimeout(() => resolve("data"), 1000);
+  });
+}
+
+const cacheMap: callAbortableFnOnce.CacheMap = new Map();
+
+const data = callAbortableFnOnce(cacheMap, "data", (signal) => {
+  return Promise.race([loadWithoutSignal(), toAbortPromise(signal)]);
+});
+```
+
+## 仕様 [#behavior]
+
+- 返される `Promise` は解決しません。内部シグナルが中断したときだけ、その中断理由で拒否されます。
+- すでに中断済みのシグナルを渡したときは、即座に中断理由で拒否される `Promise` を返します。
+- 内部シグナルは、コールバック関数の実行中だけ `toAbortPromise` で変換できます。
+- 実行が確定するか、待機者がいなくなって内部処理が中断されると、`toAbortPromise` が追加したリスナーは自動的に外れます。コールバック関数の終了後にリスナーが残ることはありません。
+- 一部の呼び出し元が中断しても、ほかの待機者が残っている間は内部シグナルは中断されません。そのため、`toAbortPromise` の `Promise` も拒否されません。
+
+## 型定義 [#types]
+
+<TypeTable
+  type={{
+    signal: {
+      type: "AbortSignal",
+      required: true,
+      description:
+        "待ち受ける内部シグナルです。callAbortableFnOnce のコールバック関数の引数として受け取ったシグナルを渡します。",
+    },
+  }}
+/>
+
+戻り値は `Promise<never>` です。中断するまで確定しません。
+
+## 関連ページ [#related]
+
+<CardGroup cols={2}>
+  <Card title="callAbortableFnOnce" href="/reference/call-abortable-fn-once" icon="code">
+    内部シグナルを受け取るコールバック関数の仕様を確認できます。
+  </Card>
+  <Card title="実行中の処理を中断する" href="/how-to/abort-in-flight-work" icon="book-open">
+    待機者の管理と中断の手順を確認できます。
+  </Card>
+</CardGroup>

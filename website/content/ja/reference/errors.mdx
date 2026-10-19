@@ -10,6 +10,7 @@ description: call-fn-once が投げるエラークラスと、その判定方法
 | `MismatchedCacheMapError` | 別の関数で使われた `CacheMap` を渡した | 関数ごとに `Map` を分ける |
 | `ReentrantCallError` | 同じキーで同期的に再入した | キーを分ける |
 | `InconsistentCacheError` | 実行中の記録と内部状態が一致しない | `CacheMap` を直接編集しない |
+| `NotPromisableSignalError` | `toAbortPromise` に登録されていないシグナルを渡した | `callAbortableFnOnce` のコールバック関数のシグナルを使う |
 
 すべて `CallFnOnceError` を継承しています。
 
@@ -22,6 +23,7 @@ import {
   callFnOnce,
   InconsistentCacheError,
   MismatchedCacheMapError,
+  NotPromisableSignalError,
   ReentrantCallError,
 } from "call-fn-once";
 
@@ -41,6 +43,10 @@ try {
   if (error instanceof ReentrantCallError) {
     // 同一キーでの同期的な再呼び出しです。キーを分けてください。
   }
+
+  if (error instanceof NotPromisableSignalError) {
+    // toAbortPromise に渡したシグナルが登録されていません。コールバック関数のシグナルを使ってください。
+  }
 }
 ```
 
@@ -55,6 +61,10 @@ try {
 ## InconsistentCacheError [#inconsistent-cache-error]
 
 `callAbortableFnOnce` が実行中の記録 (`busy: true`) を見つけたものの、待機情報が存在しないときに同期的に投げられます。関数を再実行せずに投げるため、不整合は解消されません。この状態は `CacheMap` を直接編集した場合に起こり得ます。
+
+## NotPromisableSignalError [#not-promisable-signal-error]
+
+`toAbortPromise` に、`callAbortableFnOnce` が登録していないシグナルを渡したときに、その `Promise` の拒否理由として返されます。`toAbortPromise` に渡せるのは、`callAbortableFnOnce` のコールバック関数が受け取る内部シグナルだけです。詳細は [toAbortPromise](/reference/to-abort-promise) を参照してください。
 
 ## エラーメッセージの言語 [#messages]
 

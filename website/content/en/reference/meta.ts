@@ -7,6 +7,7 @@ export default defineMeta({
     "call-fn-once",
     "call-asyncable-fn-once",
     "call-abortable-fn-once",
+    "to-abort-promise",
     "errors",
   ],
 });

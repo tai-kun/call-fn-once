@@ -34,6 +34,31 @@ If you pass the caller's signal directly to `fetch`, the entire work stops the m
 
 If you call with an already-aborted signal, it throws the abort reason without running the callback.
 
+## Wait for the abort as a Promise [#to-abort-promise]
+
+For abort-aware APIs such as `fetch`, you can pass the internal signal as-is. For operations that are not abort-aware, turn the internal signal into a `Promise` with `toAbortPromise` and race it.
+
+```ts
+import { callAbortableFnOnce, toAbortPromise } from "call-fn-once";
+
+const cacheMap: callAbortableFnOnce.CacheMap = new Map();
+const controller = new AbortController();
+
+const data = callAbortableFnOnce(
+  cacheMap,
+  "data",
+  (signal) => {
+    return Promise.race([someWork(), toAbortPromise(signal)]);
+  },
+  controller.signal,
+);
+
+controller.abort();
+await data.catch((error: unknown) => error); // the abort reason
+```
+
+When the internal signal aborts, the `Promise` returned by `toAbortPromise` is rejected with the abort reason. When the execution settles, or when every caller has aborted, the added listeners are removed automatically. For details, see [toAbortPromise](/reference/to-abort-promise).
+
 ## Share among multiple callers [#waiters]
 
 The following rules apply to waiters.

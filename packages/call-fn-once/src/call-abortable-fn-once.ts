@@ -2,6 +2,7 @@ import { getAbortReason, throwIfAborted } from "abort-signal-utils";
 import { type Thenable, type MaybePromise, isThenable } from "maypromise";
 
 import { assertCacheMapOwner } from "./_cache-map-owner.js";
+import { registerPromisableSignal, unregisterPromisableSignal } from "./_promisable-signal.js";
 import { withReentrancyGuard } from "./_reentrancy-guard.js";
 import { InconsistentCacheError } from "./errors.js";
 
@@ -131,10 +132,17 @@ function getOrCreateStateMap<K, V>(cacheMap: callAbortableFnOnce.CacheMap<K, V>)
 
 /**
  * 新規実行に対応する中断状態を作成します。
+ *
+ * 内部シグナルはコールバック関数の実行中だけ `toAbortPromise` で Promise に変換できます。
  */
 function createState(): State {
+  const ctrl = new AbortController();
+
+  // コールバック関数が `toAbortPromise` で待ち受けられるよう、実行前に登録します。
+  registerPromisableSignal(ctrl.signal);
+
   return {
-    ctrl: new AbortController(),
+    ctrl,
     sigs: new Set<AbortSignal>(),
   };
 }
@@ -210,6 +218,9 @@ function removeWaiterAndAbortIfLast<K, V>(options: RemoveWaiterOptions<K, V>): v
   }
 
   state.ctrl.abort(reason);
+  // 中断で発火した分を含め、内部シグナルに残った `toAbortPromise` のリスナーを外します。
+  // 待機者 (呼び出し元) のシグナルは呼び出し元が所有するため触りません。
+  unregisterPromisableSignal(state.ctrl.signal);
 
   // 手動で確定済みに上書きしたときは、新しい世代の値を消さずに残します。
   if (cacheMap.get(key)?.value === promise) {
@@ -406,6 +417,10 @@ function trackPending<K, V>(options: TrackPendingOptions<K, V>): Promise<any> {
   const { key, ret, state, cacheMap, stateMap } = options;
   const promise = Promise.resolve(ret as PromiseLike<V>).then(
     (value) => {
+      // 確定後は `toAbortPromise` の待ち受けが不要になるため外します。
+      // 世代交代後も旧世代の内部シグナルに残った分を外します。
+      unregisterPromisableSignal(state.ctrl.signal);
+
       if (isStaleGeneration({ key, state, promise, cacheMap, stateMap })) {
         return value;
       }
@@ -419,6 +434,9 @@ function trackPending<K, V>(options: TrackPendingOptions<K, V>): Promise<any> {
       return value;
     },
     (ex) => {
+      // 拒否時も解決時と同様に内部シグナルの待ち受けを外します。
+      unregisterPromisableSignal(state.ctrl.signal);
+
       if (isStaleGeneration({ key, state, promise, cacheMap, stateMap })) {
         throw ex;
       }
@@ -465,7 +483,7 @@ type InvokeFnOptions<T> = {
 /**
  * 実行関数を呼び出します。
  *
- * 同期例外時は状態を残さずに投げ直します。
+ * 同期例外時は内部シグナルの待ち受けを外し、状態を残さずに投げ直します。
  */
 function invokeFn<T>(options: InvokeFnOptions<T>): T {
   const { fn, key, state, stateMap } = options;
@@ -473,6 +491,7 @@ function invokeFn<T>(options: InvokeFnOptions<T>): T {
   try {
     return fn(state.ctrl.signal);
   } catch (ex) {
+    unregisterPromisableSignal(state.ctrl.signal);
     stateMap.delete(key);
 
     throw ex;
@@ -510,7 +529,7 @@ function callAbortableFnOnce<K, V>(
 ): callAbortableFnOnce.Return<V>;
 
 /**
- * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-abortable-fn-once)
+ * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-abortable-fn-once#usage)
  */
 function callAbortableFnOnce<K, V>(
   cacheMap: callAbortableFnOnce.CacheMap<K, V>,
@@ -608,10 +627,15 @@ function callAbortableFnOnce<K, V>(
     if (signal?.aborted) {
       const reason = getAbortReason(signal);
       state.ctrl.abort(reason);
+      // 中断で発火した分を含め、同期実行中に追加されたリスナーを外します。
+      unregisterPromisableSignal(state.ctrl.signal);
       stateMap.delete(key);
 
       throw reason;
     }
+
+    // 同期確定後は `toAbortPromise` の待ち受けが不要になるため外します。
+    unregisterPromisableSignal(state.ctrl.signal);
 
     cacheMap.set(key, {
       busy: false,

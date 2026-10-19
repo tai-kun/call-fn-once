@@ -34,6 +34,31 @@ await data.catch((error: unknown) => error); // AbortError
 
 中断済みのシグナルを渡して呼び出した場合は、コールバック関数を実行せずに中断理由を投げます。
 
+## 中断を Promise として待ち受ける [#to-abort-promise]
+
+`fetch` のように中断に対応した API は内部シグナルをそのまま渡せます。中断に対応していない処理は、`toAbortPromise` で内部シグナルを `Promise` に変換し、`Promise.race` で競合させます。
+
+```ts
+import { callAbortableFnOnce, toAbortPromise } from "call-fn-once";
+
+const cacheMap: callAbortableFnOnce.CacheMap = new Map();
+const controller = new AbortController();
+
+const data = callAbortableFnOnce(
+  cacheMap,
+  "data",
+  (signal) => {
+    return Promise.race([someWork(), toAbortPromise(signal)]);
+  },
+  controller.signal,
+);
+
+controller.abort();
+await data.catch((error: unknown) => error); // 中断理由
+```
+
+内部シグナルが中断すると、`toAbortPromise` が返す `Promise` が中断理由で拒否されます。実行が確定するか、すべての呼び出し元が中断すると、追加したリスナーは自動で外れます。詳しくは [toAbortPromise](/reference/to-abort-promise) を参照してください。
+
 ## 複数の呼び出し元で共有する [#waiters]
 
 待機者について、次のルールが適用されます。

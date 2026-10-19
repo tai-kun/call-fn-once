@@ -64,7 +64,7 @@ function normalizeArgs<K, V>(
 function callFnOnce<K, V>(options: callFnOnce.Options<K, V>): callFnOnce.Return<V>;
 
 /**
- * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-fn-once)
+ * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-fn-once#usage)
  */
 function callFnOnce<K, V>(
   cacheMap: callFnOnce.CacheMap<K, V>,

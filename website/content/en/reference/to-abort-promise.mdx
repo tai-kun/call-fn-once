@@ -1,0 +1,67 @@
+---
+title: toAbortPromise
+description: The specification of the function that turns the callback's internal signal into a Promise rejected with the abort reason.
+---
+
+`toAbortPromise` turns the internal signal the callback of `callAbortableFnOnce` receives into a `Promise` that is rejected with the abort reason when that signal aborts.
+
+:::warning[Important]
+You can only pass the internal signal that `callAbortableFnOnce` gives to the callback.
+:::
+
+## Usage [#usage]
+
+Adding the internal signal's `Promise` to `Promise.race` makes the race reject with the abort reason as soon as the internal work is aborted.
+
+```ts async.ts
+import { callAbortableFnOnce, toAbortPromise } from "call-fn-once";
+
+/**
+ * A time-consuming operation that is not abort-aware.
+ */
+function loadWithoutSignal(): Promise<string> {
+  return new Promise((resolve) => {
+    setTimeout(() => resolve("data"), 1000);
+  });
+}
+
+const cacheMap: callAbortableFnOnce.CacheMap = new Map();
+
+const data = callAbortableFnOnce(cacheMap, "data", (signal) => {
+  return Promise.race([loadWithoutSignal(), toAbortPromise(signal)]);
+});
+```
+
+## Behavior [#behavior]
+
+- The returned `Promise` never resolves. It is rejected only when the internal signal aborts, with that abort reason.
+- If you pass an already-aborted signal, it returns a `Promise` rejected immediately with the abort reason.
+- The internal signal can be converted by `toAbortPromise` only while the callback is running.
+- When the execution settles, or when the internal work is aborted because no waiters remain, the listeners added by `toAbortPromise` are removed automatically. No listener is left behind after the callback finishes.
+- Even if some callers abort, the internal signal does not abort while other waiters remain. The `Promise` from `toAbortPromise` is therefore not rejected either.
+
+## Types [#types]
+
+<TypeTable
+  type={{
+    signal: {
+      type: "AbortSignal",
+      required: true,
+      description:
+        "The internal signal to wait on. Pass the signal received as the argument of the callAbortableFnOnce callback.",
+    },
+  }}
+/>
+
+The return value is `Promise<never>`. It does not settle until the signal aborts.
+
+## Related pages [#related]
+
+<CardGroup cols={2}>
+  <Card title="callAbortableFnOnce" href="/reference/call-abortable-fn-once" icon="code">
+    Look up the specification of the callback that receives the internal signal.
+  </Card>
+  <Card title="Abort in-flight work" href="/how-to/abort-in-flight-work" icon="book-open">
+    Learn how waiters are managed and how to abort.
+  </Card>
+</CardGroup>
