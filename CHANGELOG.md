@@ -1,5 +1,13 @@
 # Changelog
 
+## call-fn-once@0.0.12
+
+### 新機能
+
+- コールバック関数が受け取る内部シグナルを Promise に変換するユーティリティーを追加 ([f7c1209](https://github.com/tai-kun/call-fn-once/commit/f7c120971e7e9cb4eeaf5af711d0bce8dd2ff590))
+
+**Full Changelog**: https://github.com/tai-kun/call-fn-once/compare/call-fn-once@0.0.11...call-fn-once@0.0.12
+
 ## call-fn-once@0.0.11
 
 ### バグ修正
