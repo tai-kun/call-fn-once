@@ -1,5 +1,13 @@
 # Changelog
 
+## call-fn-once@0.0.13
+
+### バグ修正
+
+- 誤った型推論を正す ([6ab1787](https://github.com/tai-kun/call-fn-once/commit/6ab178704f34fb183a10b5f056472323287a5956))
+
+**Full Changelog**: https://github.com/tai-kun/call-fn-once/compare/call-fn-once@0.0.12...call-fn-once@0.0.13
+
 ## call-fn-once@0.0.12
 
 ### 新機能
