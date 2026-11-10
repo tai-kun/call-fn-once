@@ -896,7 +896,7 @@ describe("callAbortableFnOnce", () => {
 
     // 実行と検証
     expectTypeOf(callAbortableFnOnce(syncCacheMap, "key", () => 1)).toEqualTypeOf<
-      string | number
+      string | number | Promise<string | number>
     >();
     expectTypeOf(callAbortableFnOnce(asyncCacheMap, "key", () => Promise.resolve(1))).toEqualTypeOf<
       string | number | Promise<string | number>

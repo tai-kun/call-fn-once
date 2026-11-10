@@ -396,7 +396,7 @@ describe("callAsyncableFnOnce", () => {
 
     // 実行と検証
     expectTypeOf(callAsyncableFnOnce(syncCacheMap, "key", () => 1)).toEqualTypeOf<
-      string | number
+      string | number | Promise<string | number>
     >();
     expectTypeOf(callAsyncableFnOnce(asyncCacheMap, "key", () => Promise.resolve(1))).toEqualTypeOf<
       string | number | Promise<string | number>

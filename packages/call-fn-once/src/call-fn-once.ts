@@ -26,17 +26,17 @@ namespace callFnOnce {
     /**
      * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-fn-once#types)
      */
-    cacheMap: CacheMap<K, V>;
+    readonly cacheMap: CacheMap<K, V>;
 
     /**
      * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-fn-once#types)
      */
-    key: NoInfer<K>;
+    readonly key: NoInfer<K>;
 
     /**
      * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-fn-once#types)
      */
-    fn: () => NoInfer<V>;
+    readonly fn: () => NoInfer<V>;
   };
 }
 

@@ -1,7 +1,8 @@
-import { type Thenable, type MaybePromise, isThenable } from "maypromise";
+import { type MaybePromise, type MaybePromiseLike, isThenable } from "maypromise";
 
 import { assertCacheMapOwner } from "./_cache-map-owner.js";
 import { withReentrancyGuard } from "./_reentrancy-guard.js";
+import type { $InferMapValue } from "./_type-utilities.js";
 
 /**
  * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-asyncable-fn-once#types)
@@ -12,15 +13,15 @@ namespace callAsyncableFnOnce {
    */
   export interface CacheMap<K = unknown, V = any> {
     has(key: K): boolean;
-    get(key: K): MaybePromise<V> | undefined;
-    set(key: K, value: MaybePromise<V>): void;
+    get(key: K): MaybePromise<Awaited<V>> | undefined;
+    set(key: K, value: MaybePromise<Awaited<V>>): void;
     delete(key: K): void;
   }
 
   /**
    * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-asyncable-fn-once#types)
    */
-  export type Return<T> = T extends Thenable ? MaybePromise<Awaited<T>> : T;
+  export type Return<T> = $InferMapValue<CacheMap<unknown, T>>;
 
   /**
    * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-asyncable-fn-once#types)
@@ -29,17 +30,17 @@ namespace callAsyncableFnOnce {
     /**
      * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-asyncable-fn-once#types)
      */
-    cacheMap: CacheMap<K, V>;
+    readonly cacheMap: CacheMap<K, V>;
 
     /**
      * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-asyncable-fn-once#types)
      */
-    key: NoInfer<K>;
+    readonly key: NoInfer<K>;
 
     /**
      * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-asyncable-fn-once#types)
      */
-    fn: () => NoInfer<V>;
+    readonly fn: () => MaybePromiseLike<NoInfer<V>>;
   };
 }
 
@@ -50,7 +51,11 @@ namespace callAsyncableFnOnce {
 function normalizeArgs<K, V>(
   args:
     | [options: callAsyncableFnOnce.Options<K, V>]
-    | [cacheMap: callAsyncableFnOnce.CacheMap<K, V>, key: K, fn: () => V],
+    | [
+        cacheMap: callAsyncableFnOnce.Options<K, V>["cacheMap"],
+        key: callAsyncableFnOnce.Options<K, V>["key"],
+        fn: callAsyncableFnOnce.Options<K, V>["fn"],
+      ],
 ): callAsyncableFnOnce.Options<K, V> {
   if (args.length === 1) {
     return args[0];
@@ -68,10 +73,10 @@ function normalizeArgs<K, V>(
  */
 function sharePending<K, V>(
   cacheMap: callAsyncableFnOnce.CacheMap<K, V>,
-  key: K,
-  ret: Thenable,
-): Promise<V> {
-  const promise = Promise.resolve(ret as PromiseLike<V>).then(
+  key: NoInfer<K>,
+  value: PromiseLike<NoInfer<V>>,
+): Promise<Awaited<V>> {
+  const promise = Promise.resolve(value).then(
     (val) => {
       cacheMap.set(key, val);
 
@@ -99,16 +104,20 @@ function callAsyncableFnOnce<K, V>(
  * [API Reference](https://tai-kun.github.io/call-fn-once/reference/call-asyncable-fn-once#usage)
  */
 function callAsyncableFnOnce<K, V>(
-  cacheMap: callAsyncableFnOnce.CacheMap<K, V>,
-  key: NoInfer<K>,
-  fn: () => NoInfer<V>,
+  cacheMap: callAsyncableFnOnce.Options<K, V>["cacheMap"],
+  key: callAsyncableFnOnce.Options<K, V>["key"],
+  fn: callAsyncableFnOnce.Options<K, V>["fn"],
 ): callAsyncableFnOnce.Return<V>;
 
 function callAsyncableFnOnce<K, V>(
   ...args:
     | [options: callAsyncableFnOnce.Options<K, V>]
-    | [cacheMap: callAsyncableFnOnce.CacheMap<K, V>, key: NoInfer<K>, fn: () => NoInfer<V>]
-): Awaited<V> | Promise<V> {
+    | [
+        cacheMap: callAsyncableFnOnce.Options<K, V>["cacheMap"],
+        key: callAsyncableFnOnce.Options<K, V>["key"],
+        fn: callAsyncableFnOnce.Options<K, V>["fn"],
+      ]
+): callAsyncableFnOnce.Return<V> {
   const { fn, key, cacheMap } = normalizeArgs(args);
 
   // 別の関数と CacheMap を共有したときは投げます。
@@ -116,24 +125,24 @@ function callAsyncableFnOnce<K, V>(
 
   // `has()` で存在を確認するため、`undefined` の値も正しく扱えます。
   if (cacheMap.has(key)) {
-    return cacheMap.get(key) as Awaited<V> | Promise<V>;
+    return cacheMap.get(key)!;
   }
 
   // 同期的な再入を禁止するため、ガード内で実行します。
   // 確定待ちの共有はガード解除後に行うため許可します。
   return withReentrancyGuard(cacheMap, key, () => {
-    const ret = fn();
+    const value = fn();
 
-    if (isThenable(ret)) {
-      return sharePending(cacheMap, key, ret);
+    if (isThenable(value)) {
+      return sharePending(cacheMap, key, value);
     }
 
-    // 非 Thenable の ret の型は Awaited<V> と同じになりますが、自動で型を絞り込めないので、手動でやります。
-    const value = ret as Awaited<V>;
+    // 非 Thenable の value の型は Awaited<V> と同じになりますが、自動で型を絞り込めないので、手動でやります。
+    const awaited = value as Awaited<V>;
 
-    cacheMap.set(key, value);
+    cacheMap.set(key, awaited);
 
-    return value;
+    return awaited;
   });
 }
 
